@@ -1,0 +1,47 @@
+{
+  "name": "remark-obsidian-md",
+  "version": "0.0.2",
+  "author": "Adriano Araújo (adrianoaraujodsantos@hotmail.com)",
+  "license": "MIT",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest --coverage",
+    "prepublishOnly": "npm run build",
+    "lint": "biome check",
+    "format": "biome format --write",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "image-size": "^2.0.2",
+    "mdast-util-find-and-replace": "^3.0.2",
+    "unist-util-visit": "^5.1.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.13",
+    "@commitlint/cli": "^20.4.1",
+    "@commitlint/config-conventional": "^20.4.1",
+    "@types/mdast": "^4.0.4",
+    "@types/node": "^25.2.0",
+    "@types/unist": "^3.0.3",
+    "@vitest/coverage-v8": "^4.0.18",
+    "husky": "^9.1.7",
+    "remark-parse": "^11.0.0",
+    "typescript": "^5.9.3",
+    "unified": "^11.0.5",
+    "unist-util-select": "^5.1.0"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "remark",
+    "remark-plugin",
+    "markdown",
+    "obsidian",
+    "wiki-links",
+    "fumadocs"
+  ]
+}
