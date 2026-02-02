@@ -17,7 +17,7 @@ export function processWikiLinks(
   tree: Root,
   rootDir: string,
   contentMap: Map<string, ContentMetadata>,
-  processor: Processor<Root | undefined>,
+  processor: Processor,
   slugify: (text: string) => string,
   notFoundLinkProps: Record<string, string>,
   urlPrefix?: string,

@@ -31,8 +31,11 @@ export type PluginOptions = {
   urlPrefix?: string;
 };
 
-function remarkObsidianMd(options?: PluginOptions): Transformer<Root> {
-  return async function transformer(this: Processor, tree: Root) {
+function remarkObsidianMd(
+  this: Processor,
+  options?: PluginOptions,
+): Transformer<Root> {
+  return async (tree: Root) => {
     const rootDir = options?.root || "./public";
 
     const useWikiLinks = options?.wikiLinks || true;
