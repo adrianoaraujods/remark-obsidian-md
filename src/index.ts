@@ -1,16 +1,16 @@
 import type { Root } from "mdast";
 import type { Processor, Transformer } from "unified";
 
-import { type ContentMetadata, getContentMap } from "./content-map";
-import { slugify } from "./util";
-import { processWikiLinks } from "./wiki-links";
+import { type ContentMetadata, getContentMap } from "./content-map.js";
+import { slugify } from "./util.js";
+import { processWikiLinks } from "./wiki-links.js";
 
 export type PluginOptions = {
   /**
    * A function that returns the Content Map or a Promise resolving to it.
    * This keys should be lowercase filenames (e.g., "my file").
    */
-  getContentMap: () =>
+  getContentMap?: () =>
     | Promise<Map<string, ContentMetadata>>
     | Map<string, ContentMetadata>;
   /**
@@ -31,14 +31,16 @@ export type PluginOptions = {
   urlPrefix?: string;
 };
 
-export default function plugin(options?: PluginOptions): Transformer<Root> {
+function remarkObsidianMd(options?: PluginOptions): Transformer<Root> {
   return async function transformer(this: Processor, tree: Root) {
     const rootDir = options?.root || "./public";
 
     const useWikiLinks = options?.wikiLinks || true;
     if (useWikiLinks) {
-      const contentMap =
-        (await options?.getContentMap()) || (await getContentMap(rootDir));
+      const contentMap = options?.getContentMap
+        ? await options?.getContentMap()
+        : await getContentMap(rootDir);
+
       const slugifyFunction = options?.slugify || slugify;
       const notFoundLinkProps = options?.notFoundLinkProps || {};
 
@@ -54,3 +56,5 @@ export default function plugin(options?: PluginOptions): Transformer<Root> {
     }
   };
 }
+
+export default remarkObsidianMd;

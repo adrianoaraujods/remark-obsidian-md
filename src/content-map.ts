@@ -5,7 +5,7 @@ import {
   getImageDimensions,
   hasImageExtension,
   type ImageFileMetadata,
-} from "./images";
+} from "./images.js";
 
 export type FileMetadata = {
   path: string;

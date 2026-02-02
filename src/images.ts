@@ -1,6 +1,6 @@
 import { imageSizeFromFile } from "image-size/fromFile";
 
-import type { FileMetadata } from "./content-map";
+import type { FileMetadata } from "./content-map.js";
 
 export type ImageFileMetadata = FileMetadata & {
   type: "img";

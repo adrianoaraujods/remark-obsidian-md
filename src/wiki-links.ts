@@ -5,7 +5,7 @@ import { findAndReplace } from "mdast-util-find-and-replace";
 import type { Processor } from "unified";
 import { visit } from "unist-util-visit";
 
-import type { ContentMetadata } from "./content-map";
+import type { ContentMetadata } from "./content-map.js";
 
 type IncludeNode = {
   type: "mdxJsxTextElement";

@@ -1,9 +1,9 @@
 {
   "name": "remark-obsidian-md",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "author": "Adriano Araújo (adrianoaraujodsantos@hotmail.com)",
   "license": "MIT",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "test": "vitest --coverage",
