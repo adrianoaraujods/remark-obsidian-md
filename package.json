@@ -1,7 +1,8 @@
 {
   "name": "remark-obsidian-md",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Adriano Araújo (adrianoaraujodsantos@hotmail.com)",
+  "homepage": "https://github.com/adrianoaraujods/remark-obsidian-md",
   "license": "MIT",
   "type": "module",
   "scripts": {
