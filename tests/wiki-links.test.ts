@@ -2,14 +2,14 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import type { Code, InlineCode, Link, Paragraph, Root, Text } from "mdast";
+import type { Code, InlineCode, Link, Paragraph, Text } from "mdast";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { select, selectAll } from "unist-util-select";
 import { describe, expect, it } from "vitest";
-
+import { type Options, transformTree } from "../src";
 import { getContentMap } from "../src/content-map";
-import { slugify } from "../src/util";
+import { DEFAULT_OPTIONS } from "../src/types";
 import { processWikiLinks } from "../src/wiki-links";
 
 const FIXTURES_DIR = "tests/fixtures";
@@ -27,12 +27,18 @@ describe("processWikiLinks", async () => {
   // We do this to ensure the links resolve successfully during the transformation.
   const contentMap = await getContentMap("./tests/fixtures");
 
+  const options: Required<Options> = {
+    ...DEFAULT_OPTIONS,
+    contentMap,
+  };
+
   // 3. Setup the Unified Processor
   const processor = unified().use(remarkParse);
 
   // 4. Parse and Transform
-  const tree = processor.parse(markdownContent) as Root;
-  processWikiLinks(tree, "", contentMap, processor, slugify, {}, "");
+  const tree = processor.parse(markdownContent);
+
+  processWikiLinks(processor, tree, options);
 
   it("should transform links in Headings", () => {
     // # Heading with [[Wiki Link]]

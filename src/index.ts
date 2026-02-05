@@ -2,46 +2,27 @@ import type { Root } from "mdast";
 import type { Processor, Transformer } from "unified";
 
 import { type ContentMetadata, getContentMap } from "./content-map.js";
-import type { Options } from "./types.js";
-import { slugify } from "./util.js";
-import { processWikiLinks } from "./wiki-links.js";
-
-const DEFAULT_OPTIONS = {
-  enableWikiLinks: true,
-  root: "./public",
-  slugify,
-} satisfies Options;
+import { transformTree } from "./transform-tree.js";
+import { DEFAULT_OPTIONS, type Options } from "./types.js";
+import type { slugify } from "./utils.js";
 
 function remarkObsidianMd(
   this: Processor,
   options?: Options,
 ): Transformer<Root> {
-  const {
-    enableWikiLinks,
-    root,
-    slugify,
-    contentMap,
-    urlPrefix,
-    notFoundLinkProps,
-  } = {
+  const pluginOptions = {
     ...DEFAULT_OPTIONS,
     ...options,
   };
 
   return async (tree: Root) => {
-    if (enableWikiLinks) {
-      processWikiLinks(
-        tree,
-        root,
-        contentMap || (await getContentMap(root)),
-        this,
-        slugify,
-        notFoundLinkProps || {},
-        urlPrefix,
-      );
+    if (!pluginOptions.contentMap) {
+      pluginOptions.contentMap = await getContentMap(pluginOptions.root);
     }
+
+    transformTree(this, tree, pluginOptions as Required<Options>);
   };
 }
 
 export default remarkObsidianMd;
-export { getContentMap, slugify, type Options, type ContentMetadata };
+export { getContentMap, type slugify, type Options, type ContentMetadata };

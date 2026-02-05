@@ -1,166 +1,142 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Paragraph, PhrasingContent, Root } from "mdast";
+import type { PhrasingContent, Root } from "mdast";
 import { findAndReplace } from "mdast-util-find-and-replace";
 import type { Processor } from "unified";
-import { visit } from "unist-util-visit";
 
-import type { ContentMetadata } from "./content-map.js";
-
-type IncludeNode = {
-  type: "mdxJsxTextElement";
-  name: "include";
-  data: { tree: Root };
-};
+import { transformTree } from "./transform-tree.js";
+import type { Options } from "./types.js";
+import { WIKI_LINK_REGEX } from "./utils.js";
 
 export function processWikiLinks(
-  tree: Root,
-  rootDir: string,
-  contentMap: Map<string, ContentMetadata>,
   processor: Processor,
-  slugify: (text: string) => string,
-  notFoundLinkProps: Record<string, string>,
-  urlPrefix?: string,
+  tree: Root,
+  options: Required<Options>,
 ) {
-  function transformTree(currentTree: Root) {
-    findAndReplace(currentTree, [
-      [
-        /(!)?\[\[(.*?)\]\]/g,
-        (_: string, embed: string, content: string) => {
-          const pipeIndex = content.indexOf("|");
+  const { contentMap, customProps, root, slugify, urlPrefix } = options;
 
-          let rawTarget = "";
-          let alias: string | undefined;
+  findAndReplace(tree, [
+    [
+      WIKI_LINK_REGEX,
+      (_: string, embed: string, content: string) => {
+        const pipeIndex = content.indexOf("|");
 
-          if (pipeIndex === -1) {
-            rawTarget = content;
-          } else {
-            rawTarget = content.slice(0, pipeIndex);
-            alias = content.slice(pipeIndex + 1).trim();
-          }
+        let rawTarget = "";
+        let alias: string | undefined;
 
-          // Clean up whitespace and normalize slashes
-          rawTarget = rawTarget.replace(/\\/g, "/").trim();
-          if (!rawTarget || rawTarget === "") return false;
+        if (pipeIndex === -1) {
+          rawTarget = content;
+        } else {
+          rawTarget = content.slice(0, pipeIndex);
+          alias = content.slice(pipeIndex + 1).trim();
+        }
 
-          let [target, anchor] = rawTarget.split("#");
-          target = target ? target.trim() : "";
-          anchor = anchor ? anchor.trim() : undefined;
-          const label = alias || rawTarget;
+        // Clean up whitespace and normalize slashes
+        rawTarget = rawTarget.replace(/\\/g, "/").trim();
+        if (!rawTarget || rawTarget === "") return false;
 
-          // CASE 1: Standard WikiLink to Heading
-          if (anchor && target === "") {
-            const slugifiedUrl = `#${slugify(anchor)}`;
+        let [target, anchor] = rawTarget.split("#");
+        target = target ? target.trim() : "";
+        anchor = anchor ? anchor.trim() : undefined;
+        const label = alias || rawTarget;
 
-            return {
-              type: "link",
-              url: slugifiedUrl,
-              children: [{ type: "text", value: label }],
-            };
-          }
-
-          const metadata = contentMap.get(target.toLocaleLowerCase());
-
-          // CASE 2: Broken Link
-          if (!metadata) {
-            return {
-              type: "link",
-              url: "#",
-              children: [{ type: "text", value: label }],
-              data: { hProperties: notFoundLinkProps },
-            };
-          }
-
-          const isImage = metadata.type === "img";
-          const isEmbed = embed === "!";
-
-          // CASE 3: Embed Image
-          if (isEmbed && isImage) {
-            const resized = !Number.isNaN(Number(alias));
-            const altText = resized ? target : label;
-
-            return {
-              type: "image",
-              url: metadata.path,
-              alt: altText,
-              data: {
-                hProperties: {
-                  src: metadata.path,
-                  alt: altText,
-                  width: metadata.width,
-                  height: metadata.height,
-                  style: resized ? `width:${alias}px;` : undefined,
-                },
-              },
-            };
-          }
-
-          // CASE 4: WikiLink to Image (Link only)
-          if (!isEmbed && isImage) {
-            return {
-              type: "link",
-              url: metadata.path,
-              children: [{ type: "text", value: label }],
-            };
-          }
-
-          // CASE 5: Embed WikiLink to Text File (Recursive Logic)
-          if (isEmbed && !isImage) {
-            try {
-              const absolutePath = path.resolve(`${rootDir}/${metadata.path}`);
-              const embedContent = fs.readFileSync(absolutePath).toString();
-
-              const embedTree = processor.parse(embedContent) as Root;
-
-              transformTree(embedTree);
-
-              return {
-                type: "mdxJsxTextElement",
-                name: "include",
-                attributes: [],
-                children: [],
-                data: { tree: embedTree },
-              } as unknown as PhrasingContent;
-            } catch (error) {
-              console.error(`Failed to embed ${target}:`, error);
-              return null;
-            }
-          }
-
-          // CASE 6: Standard WikiLink to Text File
-          const slugifiedUrl = `${urlPrefix ? `${urlPrefix}/` : ""}${metadata.path
-            .replace(/\.mdx?$/, "")
-            .split("/")
-            .map((part) => slugify(part))
-            .join("/")}${anchor ? `#${slugify(anchor)}` : ""}`;
+        // CASE 1: Standard WikiLink to Heading
+        if (anchor && target === "") {
+          const slugifiedUrl = `#${slugify(anchor)}`;
 
           return {
             type: "link",
             url: slugifiedUrl,
             children: [{ type: "text", value: label }],
           };
-        },
-      ],
-    ]);
+        }
 
-    // Post-Processing: Flatten `<include>` nodes
-    visit(currentTree, "paragraph", (node: Paragraph, index, parent) => {
-      if (!parent || typeof index !== "number") return;
+        const metadata = contentMap.get(target.toLocaleLowerCase());
 
-      if (node.children.length === 1) {
-        const child = node.children[0] as unknown as IncludeNode;
+        // CASE 2: WikiLink (File Not found)
+        if (!metadata) {
+          return {
+            type: "link",
+            url: "#",
+            children: [{ type: "text", value: label }],
+            data: { hProperties: customProps.notFoundWikiLinks },
+          };
+        }
 
-        if (child.type === "mdxJsxTextElement" && child.name === "include") {
-          const embedTree = child.data?.tree;
+        const isImage = metadata.type === "img";
+        const isEmbed = embed === "!";
 
-          if (embedTree) {
-            parent.children.splice(index, 1, ...embedTree.children);
-            return index + embedTree.children.length;
+        // CASE 3: Embed Image
+        if (isEmbed && isImage) {
+          const resized = !Number.isNaN(Number(alias));
+          const altText = resized ? target : label;
+
+          return {
+            type: "image",
+            url: metadata.path,
+            alt: altText,
+            data: {
+              hProperties: {
+                ...customProps.imageEmbeds,
+                src: metadata.path,
+                alt: altText,
+                width: metadata.width,
+                height: metadata.height,
+                style: resized ? `width:${alias}px;` : undefined,
+              },
+            },
+          };
+        }
+
+        // CASE 4: WikiLink to Image
+        if (!isEmbed && isImage) {
+          return {
+            type: "link",
+            url: metadata.path,
+            children: [{ type: "text", value: label }],
+            data: { hProperties: customProps.imageLinks },
+          };
+        }
+
+        // CASE 5: Embed Text File WikiLink (Recursive Logic)
+        if (isEmbed && !isImage) {
+          if (!options.enableEmbeds) return null;
+
+          try {
+            const absolutePath = path.resolve(`${root}/${metadata.path}`);
+            const embedContent = fs.readFileSync(absolutePath).toString();
+
+            const embedTree = processor.parse(embedContent) as Root;
+
+            transformTree(processor, embedTree, options);
+
+            return {
+              type: "mdxJsxTextElement",
+              name: "include",
+              attributes: [],
+              children: [],
+              data: { tree: embedTree },
+            } as unknown as PhrasingContent;
+          } catch (error) {
+            console.error(`Failed to embed ${target}:`, error);
+            return null;
           }
         }
-      }
-    });
-  }
 
-  transformTree(tree);
+        // CASE 6: Standard WikiLink to Text File
+        const slugifiedUrl = `${urlPrefix ? `${urlPrefix}/` : ""}${metadata.path
+          .replace(/\.mdx?$/, "")
+          .split("/")
+          .map((part) => slugify(part))
+          .join("/")}${anchor ? `#${slugify(anchor)}` : ""}`;
+
+        return {
+          type: "link",
+          url: slugifiedUrl,
+          children: [{ type: "text", value: label }],
+          data: { hProperties: customProps.wikiLinks },
+        };
+      },
+    ],
+  ]);
 }

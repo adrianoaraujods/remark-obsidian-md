@@ -1,4 +1,7 @@
-import type { ContentMetadata } from "./content-map.js";
+/** biome-ignore-all lint/suspicious/noExplicitAny: HTML element properties could be of any type */
+
+import { type ContentMetadata, getContentMap } from "./content-map.js";
+import { slugify } from "./utils.js";
 
 export type Options = {
   /**
@@ -20,20 +23,43 @@ export type Options = {
    * The keys should be the file name without the extension (except if is a image) in
    * lowercase (e.g., "my file" or "image.png").
    *
-   * @default return of {@link {import("./content-map").getContentMap}}
+   * @default Result of {@link getContentMap}
    */
   contentMap?: Map<string, ContentMetadata>;
 
   /**
-   * If you want to support links with `[[Wiki Link]]` syntax.
+   * If you want to support links with (e.g., `[[Wiki Link]]`).
    * @default true
    */
   enableWikiLinks?: boolean;
+
+  /**
+   * If you want to support text embeds (e.g., `![[Wiki Link]]`).
+   * @default true
+   */
+  enableEmbeds?: boolean;
 
   /**
    * A prefix that will be prepended in the slugified URLs.
    */
   urlPrefix?: string;
 
-  notFoundLinkProps?: Record<string, string>;
+  /**
+   * Custom HTML properties for each type of node.
+   */
+  customProps?: {
+    wikiLinks?: Record<string, any>;
+    notFoundWikiLinks?: Record<string, any>;
+    imageLinks?: Record<string, any>;
+    imageEmbeds?: Record<string, any>;
+  };
 };
+
+export const DEFAULT_OPTIONS = {
+  enableWikiLinks: true,
+  enableEmbeds: true,
+  root: "./public",
+  slugify,
+  customProps: {},
+  urlPrefix: "",
+} satisfies Options;

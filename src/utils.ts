@@ -1,3 +1,8 @@
+export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/g;
+
+export const CALLOUT_REGEX =
+  /\[!(?<type>\w+)](?<collapsable>[+-]?)\s*(?<title>.*)/g;
+
 /**
  * Converts a string into a URL-friendly slug.
  *
