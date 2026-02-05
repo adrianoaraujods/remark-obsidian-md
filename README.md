@@ -119,6 +119,11 @@ We are actively working on making this the ultimate Obsidian adapter for the web
 - **Section Transclusion:** Support `![[My Page#Section]]` to embed **only** a specific section of a note (from the heading down to the next heading of the same level).
 - **Obsidian Callouts:** Native support for Obsidian's `> [!INFO]` callout syntax.
 
-## 📄 License
+## Credits
+
+- [rehype-callouts](https://github.com/lin-stephanie/rehype-callouts): the logic behind the callouts.
+- [Lucide](https://lucide.dev/) - default callouts icons.
+
+## License
 
 This project is licensed under the **[MIT License](/LICENSE)**.
