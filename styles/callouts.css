@@ -1,0 +1,33 @@
+.callout {
+  border-left-style: solid;
+  border-left-width: 4px;
+  border-radius: 4px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.callout-title {
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.callout-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.callout-collapse-icon {
+  transition: rotate;
+  transition-duration: 200ms;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+details:open .callout-collapse-icon {
+  rotate: 90deg;
+}

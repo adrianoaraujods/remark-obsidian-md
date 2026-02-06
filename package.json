@@ -1,10 +1,36 @@
 {
   "name": "remark-obsidian-md",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": "Adriano Araújo (adrianoaraujodsantos@hotmail.com)",
-  "homepage": "https://github.com/adrianoaraujods/remark-obsidian-md",
   "license": "MIT",
+  "keywords": [
+    "remark",
+    "remark-plugin",
+    "markdown",
+    "obsidian",
+    "unified",
+    "admonitions",
+    "wiki-links",
+    "fumadocs",
+    "hast",
+    "callout",
+    "callouts",
+    "alerts"
+  ],
+  "homepage": "https://github.com/adrianoaraujods/remark-obsidian-md#readme",
+  "repository": "https://github.com/adrianoaraujods/remark-obsidian-md",
   "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "styles"
+  ],
+  "exports": {
+    ".": "./dist/index.js",
+    "./styles/*": "./styles/*.css"
+  },
   "scripts": {
     "build": "tsc",
     "test": "vitest --coverage",
@@ -32,24 +58,5 @@
     "typescript": "^5.9.3",
     "unified": "^11.0.5",
     "unist-util-select": "^5.1.0"
-  },
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist",
-    "styles"
-  ],
-  "exports": {
-    ".": "./dist/index.js",
-    "./styles/*": "./styles/*.css"
-  },
-  "keywords": [
-    "remark",
-    "remark-plugin",
-    "markdown",
-    "obsidian",
-    "wiki-links",
-    "fumadocs"
-  ]
+  }
 }
