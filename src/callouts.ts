@@ -1,6 +1,11 @@
 import { fromHtml } from "hast-util-from-html";
-import type { Blockquote, Emphasis, Paragraph, Root, Text } from "mdast";
-import type { Node, Parent } from "unist";
+import type {
+  Blockquote,
+  Emphasis,
+  Paragraph,
+  PhrasingContent,
+  Root,
+} from "mdast";
 import { visit } from "unist-util-visit";
 import type { Options } from "./types.js";
 import { CALLOUT_REGEX } from "./utils.js";
@@ -23,41 +28,81 @@ export function processCallouts(
     const match = firstTextNode.value.match(CALLOUT_REGEX);
     if (!match) return;
 
-    const [fullMatch, type, foldable, title] = match;
+    const [_, type, foldable] = match;
     if (!type) return;
 
     // Standardize metadata
     const calloutType = type.toLowerCase();
     const isCollapsible = !!foldable;
     const isCollapsed = foldable === "-";
-    const calloutTitle = (
-      title || calloutType.charAt(0).toUpperCase() + calloutType.slice(1)
-    ).trim();
 
-    // Remove the callout syntax (e.g., "[!info] Title") from the text node
-    const newTextValue = firstTextNode.value.slice(fullMatch.length);
+    const titleChildren: PhrasingContent[] = [];
 
-    // Remove leading newlines/CRs to prevent standard markdown parsers from
-    // interpreting them as a "break" (<br>) at the start of the body.
-    firstTextNode.value = newTextValue.replace(/^[\r\n]+/, "");
+    const tagMatch = firstTextNode.value.match(/^\[!([\w-]+)\]([+-]?)/);
+    if (!tagMatch) return; // Should not happen given previous check
+    const tagLength = tagMatch[0].length;
 
-    // If the text node is now empty (or just whitespace), remove it
-    if (!firstTextNode.value) {
+    // Remove the tag from the first text node. What remains is the start of the title.
+    // Example: "[!info] My Title" -> " My Title"
+    firstTextNode.value = firstTextNode.value.slice(tagLength);
+
+    // Iterate over the paragraph children to build the title array
+    // untill we hit a newline or a break.
+    while (firstParagraph.children.length > 0) {
+      const nextNode = firstParagraph.children[0];
+
+      if (nextNode?.type === "break") {
+        // Explicit markdown break -> End of Title
+        firstParagraph.children.shift();
+        break;
+      }
+
+      if (nextNode?.type === "text") {
+        const newlineIndex = nextNode.value.indexOf("\n");
+        if (newlineIndex !== -1) {
+          const titlePart = nextNode.value.slice(0, newlineIndex);
+          const bodyPart = nextNode.value.slice(newlineIndex + 1);
+
+          if (titlePart) {
+            titleChildren.push({ type: "text", value: titlePart });
+          }
+
+          nextNode.value = bodyPart;
+
+          break;
+        }
+      }
+
+      // If it's a text node without newline, or other inline element (strong, em)
+      // Move it to titleChildren and remove from paragraph
+      titleChildren.push(nextNode as PhrasingContent);
       firstParagraph.children.shift();
     }
 
-    // Double check: if the first child is now a hard break (which might have followed the title),
-    // remove it to ensure the content starts cleanly.
-    if (firstParagraph.children[0]?.type === "break") {
-      firstParagraph.children.shift();
+    // Check if we actually found a title.
+    // We check if titleChildren is empty OR if it only contains whitespace
+    const hasContent = titleChildren.some((child) => {
+      if (child.type === "text") return child.value.trim().length > 0;
+      return true; // Any non-text node (like bold) counts as content
+    });
+
+    if (!hasContent) {
+      const fallbackTitle =
+        calloutType.charAt(0).toUpperCase() + calloutType.slice(1);
+      // Clear any whitespace-only text nodes we might have collected
+      titleChildren.length = 0;
+      titleChildren.push({ type: "text", value: fallbackTitle });
     }
 
-    // If the paragraph itself is now empty (e.g. the callout had no body), remove it entirely
     if (firstParagraph.children.length === 0) {
       node.children.shift();
     }
 
     if (options.useMdxCallout) {
+      const plainTitle = titleChildren
+        .map((c) => ("value" in c ? c.value : ""))
+        .join("");
+
       node.data = {
         ...node.data,
         ...options.customProps.callouts?.container,
@@ -65,7 +110,7 @@ export function processCallouts(
         hProperties: {
           // @ts-expect-error hProperties should not exist on `node.data`
           ...node.data.hProperties,
-          title: calloutTitle,
+          title: plainTitle,
           type: calloutType,
         },
       };
@@ -102,7 +147,7 @@ export function processCallouts(
             options.customProps.callouts?.title?.className || "callout-title",
         },
       },
-      children: [iconNode, { type: "text", value: calloutTitle }],
+      children: [iconNode, ...titleChildren],
     };
 
     if (isCollapsible) {
