@@ -1,5 +1,6 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: HTML element properties could be of any type */
 
+import type { DefaultCallout } from "./callouts.js";
 import { type ContentMetadata, getContentMap } from "./content-map.js";
 import { slugify } from "./utils.js";
 
@@ -40,6 +41,18 @@ export type Options = {
   enableEmbeds?: boolean;
 
   /**
+   * If you want to support callouts (e.g., `> [!info] title`).
+   * @default true
+   */
+  enableCallouts?: boolean;
+
+  /**
+   * If you want to render callouts using MDX component `<Callout>` instead of HTML elements.
+   * @default false
+   */
+  useMdxCallout?: boolean;
+
+  /**
    * A prefix that will be prepended in the slugified URLs.
    */
   urlPrefix?: string;
@@ -52,12 +65,27 @@ export type Options = {
     notFoundWikiLinks?: Record<string, any>;
     imageLinks?: Record<string, any>;
     imageEmbeds?: Record<string, any>;
+    callouts?: {
+      container?: Record<string, any>;
+      icon?: Record<string, any>;
+      title?: Record<string, any>;
+      collapse?: Record<string, any>;
+    };
   };
+
+  /**
+   * Declare custom Callout icons or overwrite the defaults.
+   */
+  callouts?: {
+    [K in DefaultCallout]?: string;
+  } & { [key: string]: string };
 };
 
 export const DEFAULT_OPTIONS = {
   enableWikiLinks: true,
   enableEmbeds: true,
+  enableCallouts: true,
+  useMdxCallout: false,
   root: "./public",
   slugify,
   customProps: {},

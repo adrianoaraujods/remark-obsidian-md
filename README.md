@@ -117,7 +117,11 @@ We are actively working on making this the ultimate Obsidian adapter for the web
 - **YAML Frontmatter Handling:** Parse Wiki Links inside frontmatter fields (e.g., `related: "[[Another Note]]"`).
 - **Smart Embed Cleaning:** Automatically strip YAML frontmatter from embedded notes.
 - **Section Transclusion:** Support `![[My Page#Section]]` to embed **only** a specific section of a note (from the heading down to the next heading of the same level).
-- **Obsidian Callouts:** Native support for Obsidian's `> [!INFO]` callout syntax.
+- Obsdian Custom Callouts CSS Snippets support.
+
+## Credits
+
+- [Lucide](https://lucide.dev/) - default callouts icons.
 
 ## License
 

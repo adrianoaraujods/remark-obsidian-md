@@ -1,7 +1,10 @@
 export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/g;
 
-export const CALLOUT_REGEX =
-  /\[!(?<type>\w+)](?<collapsable>[+-]?)\s*(?<title>.*)/g;
+// Regex to match: > [!type]+/- Title
+// Group 1: Type (e.g., "note", "warning")
+// Group 2: Foldable (+, -, or undefined)
+// Group 3: Title (optional)
+export const CALLOUT_REGEX = /^\[!([\w-]+)\]([+-]?)(?:[ \t]+(.*))?(?:\n|$)/;
 
 /**
  * Converts a string into a URL-friendly slug.
