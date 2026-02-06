@@ -3,8 +3,7 @@ import path from "node:path";
 import type { PhrasingContent, Root } from "mdast";
 import { findAndReplace } from "mdast-util-find-and-replace";
 import type { Processor } from "unified";
-
-import { transformTree } from "./transform-tree.js";
+import { MAX_EMBED_DEPTH } from "./embeds.js";
 import type { Options } from "./types.js";
 import { WIKI_LINK_REGEX } from "./utils.js";
 
@@ -12,6 +11,7 @@ export function processWikiLinks(
   processor: Processor,
   tree: Root,
   options: Required<Options>,
+  depth: number = 0,
 ) {
   const { contentMap, customProps, root, slugify, urlPrefix } = options;
 
@@ -108,7 +108,9 @@ export function processWikiLinks(
 
             const embedTree = processor.parse(embedContent) as Root;
 
-            transformTree(processor, embedTree, options);
+            if (depth < MAX_EMBED_DEPTH) {
+              processWikiLinks(processor, embedTree, options, depth + 1);
+            }
 
             return {
               type: "mdxJsxTextElement",

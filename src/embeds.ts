@@ -1,6 +1,8 @@
 import type { Paragraph, Root } from "mdast";
 import { visit } from "unist-util-visit";
 
+export const MAX_EMBED_DEPTH = 4;
+
 type IncludeNode = {
   type: "mdxJsxTextElement";
   name: "include";

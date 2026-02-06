@@ -1,10 +1,11 @@
 import type { Root } from "mdast";
 import type { Processor, Transformer } from "unified";
-import { DEFAULT_CALLOUTS } from "./callouts.js";
+import { DEFAULT_CALLOUTS, processCallouts } from "./callouts.js";
 import { type ContentMetadata, getContentMap } from "./content-map.js";
-import { transformTree } from "./transform-tree.js";
+import { processEmbeds } from "./embeds.js";
 import { DEFAULT_OPTIONS, type Options } from "./types.js";
 import type { slugify } from "./utils.js";
+import { processWikiLinks } from "./wiki-links.js";
 
 function remarkObsidianMd(
   this: Processor,
@@ -21,7 +22,17 @@ function remarkObsidianMd(
       pluginOptions.contentMap = await getContentMap(pluginOptions.root);
     }
 
-    transformTree(this, tree, pluginOptions as Required<Options>);
+    if (pluginOptions.enableWikiLinks) {
+      processWikiLinks(this, tree, pluginOptions as Required<Options>);
+
+      if (pluginOptions.enableEmbeds) {
+        processEmbeds(tree);
+      }
+    }
+
+    if (pluginOptions.enableCallouts) {
+      processCallouts(tree, pluginOptions);
+    }
   };
 }
 
