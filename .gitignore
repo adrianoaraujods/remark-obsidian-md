@@ -9,6 +9,7 @@
 !.yarn/versions
 
 # testing
+**/__snapshots__/**
 /coverage
 
 # builds
