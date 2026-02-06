@@ -4,10 +4,12 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Code, InlineCode, Link, Paragraph, Text } from "mdast";
 import remarkParse from "remark-parse";
-import { unified } from "unified";
+import { type Processor, unified } from "unified";
 import { select, selectAll } from "unist-util-select";
 import { describe, expect, it } from "vitest";
-import { type Options, transformTree } from "../src";
+
+import type { Options } from "../src";
+import { DEFAULT_CALLOUTS } from "../src/callouts";
 import { getContentMap } from "../src/content-map";
 import { DEFAULT_OPTIONS } from "../src/types";
 import { processWikiLinks } from "../src/wiki-links";
@@ -29,6 +31,7 @@ describe("processWikiLinks", async () => {
 
   const options: Required<Options> = {
     ...DEFAULT_OPTIONS,
+    callouts: DEFAULT_CALLOUTS,
     contentMap,
   };
 
@@ -38,12 +41,12 @@ describe("processWikiLinks", async () => {
   // 4. Parse and Transform
   const tree = processor.parse(markdownContent);
 
-  processWikiLinks(processor, tree, options);
+  processWikiLinks(processor as unknown as Processor, tree, options);
 
   it("should transform links in Headings", () => {
     // # Heading with [[Wiki Link]]
     const heading = select("heading", tree);
-    const link = select("link", heading as any) as Link;
+    const link = select("link", heading) as Link;
 
     expect(link).toBeDefined();
     expect(link.url).toBe("/wiki-link");
@@ -79,13 +82,13 @@ describe("processWikiLinks", async () => {
     const aliasedLink = links.find((l) => l.url === "/folder/nested");
 
     expect(aliasedLink).toBeDefined();
-    expect((aliasedLink!.children[0] as Text).value).toBe("Nested Wiki Link");
+    expect((aliasedLink?.children[0] as Text).value).toBe("Nested Wiki Link");
   });
 
   it("should transform links inside Bold/Strong", () => {
     // **[[Wiki Link]]**
     const strong = select("strong", tree);
-    const link = select("link", strong as any) as Link;
+    const link = select("link", strong) as Link;
 
     expect(link).toBeDefined();
     expect(link.url).toBe("/wiki-link");
@@ -94,7 +97,7 @@ describe("processWikiLinks", async () => {
   it("should transform links inside Italic/Emphasis", () => {
     // _[[Wiki Link]]_
     const emphasis = select("emphasis", tree);
-    const link = select("link", emphasis as any) as Link;
+    const link = select("link", emphasis) as Link;
 
     expect(link).toBeDefined();
     expect(link.url).toBe("/wiki-link");
@@ -116,6 +119,7 @@ describe("processWikiLinks", async () => {
     expect(inlineCode.value).toBe("[[Wiki Link]]");
 
     // InlineCode nodes are leaves, they should not have children
+    // biome-ignore lint/suspicious/noExplicitAny: testing
     const children = (inlineCode as any).children;
     expect(children).toBeUndefined();
   });
@@ -126,7 +130,7 @@ describe("processWikiLinks", async () => {
     const linkInList = select("link", {
       type: "root",
       children: listItems,
-    } as any) as Link;
+    }) as Link;
 
     expect(linkInList).toBeDefined();
     expect(linkInList.url).toBe("/wiki-link");
