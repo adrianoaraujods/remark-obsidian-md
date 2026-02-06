@@ -1,4 +1,4 @@
-export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/g;
+export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/;
 
 // Regex to match: > [!type]+/- Title
 // Group 1: Type (e.g., "note", "warning")
