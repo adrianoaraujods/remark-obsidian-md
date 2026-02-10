@@ -75,8 +75,6 @@ Images support standard embedding and Obsidian's resizing syntax.
 
 Using `![[My Note]]` will embed the content of that note directly into the current page.
 
-- _Note: Embedding specific headings (e.g., `![[My Note#Heading]]`) is not currently supported._
-
 ### Callouts
 
 Supports standard Obsidian callouts (e.g., `> [!info] Title`).
@@ -255,9 +253,6 @@ The node types are supported in [`@types/mdast`](https://www.npmjs.com/package/@
 ## Next Steps
 
 - **YAML Frontmatter Handling:** Parse Wiki Links inside frontmatter fields (e.g., `related: "[[Another Note]]"`).
-- **Smart Embed Cleaning:** Automatically strip YAML frontmatter from embedded notes.
-- **Section Transclusion:** Support `![[My Page#Section]]` to embed **only** a specific section of a note (from the heading down to the next heading of the same level).
-- Obsdian Custom Callouts CSS Snippets support.
 
 ## Credits
 

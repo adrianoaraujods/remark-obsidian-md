@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { PhrasingContent, Root } from "mdast";
+import type { Heading, PhrasingContent, Root, RootContent } from "mdast";
 import { findAndReplace } from "mdast-util-find-and-replace";
 import type { Processor } from "unified";
 import { MAX_EMBED_DEPTH } from "./embeds.js";
@@ -37,7 +37,7 @@ export function processWikiLinks(
 
         let [target, anchor] = rawTarget.split("#");
         target = target ? target.trim() : "";
-        anchor = anchor ? anchor.trim() : undefined;
+        anchor = anchor ? anchor.trim().toLocaleLowerCase() : undefined;
         const label = alias || rawTarget;
 
         // CASE 1: Standard WikiLink to Heading
@@ -104,9 +104,58 @@ export function processWikiLinks(
 
           try {
             const absolutePath = path.resolve(`${root}/${metadata.path}`);
-            const embedContent = fs.readFileSync(absolutePath).toString();
+            let embedContent = fs.readFileSync(absolutePath).toString();
+
+            // remove YAML frontmatter
+            if (embedContent.startsWith("---")) {
+              embedContent = embedContent.replace(/^---[\s\S]*?---\r?\n?/, "");
+            }
 
             const embedTree = processor.parse(embedContent) as Root;
+
+            // filter content from heading
+            if (anchor) {
+              const startIndex = embedTree.children.findIndex((node) => {
+                if (node.type !== "heading") return false;
+
+                const text = node.children
+                  .map((c) => ("value" in c ? c.value : ""))
+                  .join("")
+                  .trim()
+                  .toLowerCase();
+
+                return text === anchor || slugify(text) === slugify(anchor);
+              });
+
+              if (startIndex !== -1) {
+                const startHeadingNode = embedTree.children[
+                  startIndex
+                ] as Heading;
+                const startDepth = startHeadingNode.depth;
+                const length = embedTree.children.length;
+
+                let endIndex = length;
+                for (let i = startIndex + 1; i < length; i++) {
+                  const node = embedTree.children[i] as RootContent;
+
+                  if (node.type === "heading" && node.depth <= startDepth) {
+                    endIndex = i;
+                    break;
+                  }
+                }
+
+                embedTree.children = embedTree.children.slice(
+                  startIndex,
+                  endIndex,
+                );
+              } else {
+                console.warn(
+                  `Heading '#${anchor}' not found in ${metadata.path}`,
+                );
+
+                embedTree.children = [];
+              }
+            }
 
             if (depth < MAX_EMBED_DEPTH) {
               processWikiLinks(processor, embedTree, options, depth + 1);
