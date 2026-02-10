@@ -2,6 +2,7 @@
 
 import type { DefaultCallout } from "./callouts.js";
 import { type ContentMetadata, getContentMap } from "./content-map.js";
+import { SVG_ARROW_RIGHT } from "./icons.js";
 import { slugify } from "./utils.js";
 
 export type Options = {
@@ -53,6 +54,11 @@ export type Options = {
   enableHighlights?: boolean;
 
   /**
+   * Custom SVG to replace the callout collapse icon
+   */
+  calloutCollapseIcon?: string;
+
+  /**
    * If you want to render callouts using MDX component `<Callout>` instead of HTML elements.
    * @default false
    */
@@ -94,6 +100,7 @@ export const DEFAULT_OPTIONS = {
   enableCallouts: true,
   enableHighlights: true,
   useMdxCallout: false,
+  calloutCollapseIcon: SVG_ARROW_RIGHT,
   root: "./public",
   slugify,
   customProps: {},
