@@ -1,4 +1,5 @@
 export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/;
+export const HIGHLIGHT_REGEX = /==(.*?)==/;
 
 // Regex to match: > [!type]+/- Title
 // Group 1: Type (e.g., "note", "warning")

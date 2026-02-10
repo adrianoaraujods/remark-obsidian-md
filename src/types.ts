@@ -47,6 +47,12 @@ export type Options = {
   enableCallouts?: boolean;
 
   /**
+   * If you want to support highlights (e.g., `==text==`).
+   * @default true
+   */
+  enableHighlights?: boolean;
+
+  /**
    * If you want to render callouts using MDX component `<Callout>` instead of HTML elements.
    * @default false
    */
@@ -65,6 +71,7 @@ export type Options = {
     notFoundWikiLinks?: Record<string, any>;
     imageLinks?: Record<string, any>;
     imageEmbeds?: Record<string, any>;
+    highlights?: Record<string, any>;
     callouts?: {
       container?: Record<string, any>;
       icon?: Record<string, any>;
@@ -85,6 +92,7 @@ export const DEFAULT_OPTIONS = {
   enableWikiLinks: true,
   enableEmbeds: true,
   enableCallouts: true,
+  enableHighlights: true,
   useMdxCallout: false,
   root: "./public",
   slugify,
