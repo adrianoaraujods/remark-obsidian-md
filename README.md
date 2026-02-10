@@ -3,36 +3,40 @@
 [![NPM Version](https://img.shields.io/npm/v/remark-obsidian-md?color=blue&style=flat-square)](https://www.npmjs.com/package/remark-obsidian-md)
 [![License](https://img.shields.io/npm/l/remark-obsidian-md?color=green&style=flat-square)](LICENSE)
 
-A robust [Remark](https://remark.js.org) plugin to parse **Obsidian-flavored Markdown** for the [Unified](https://unifiedjs.com) ecosystem.
+**[remark](https://github.com/remarkjs/remark)** plugin to support **[Obsidian.md](https://obsidian.md)** syntax (wiki links, callouts, highlights).
 
-Designed for static site generators like [Next.js](https://nextjs.org) and documentation frameworks like [Fumadocs](https://fumadocs.vercel.app), this plugin allows you to write content in Obsidian and render it perfectly on the web—handling Wiki Links, recursive note embedding, and image resizing effortlessly.
+## Contents
 
-## Features & Syntax
+- [What is this?](#what-is-this)
+- [When should I use this?](#when-should-i-use-this)
+- [Installation](#installation)
+- [Features](#features)
+  - [Wiki Links](#wiki-links)
+  - [Callouts](#callouts)
+  - [Highlights](#highlights)
+- [Usage](#usage)
+  - [Unified / Remark](#unified--remark)
+  - [Next.js / Fumadocs](#nextjs--fumadocs)
+- [Options](#options)
+- [Examples](#examples)
+- [Types](#types)
+- [Next Steps](#next-steps)
+- [Credits](#credits)
+- [License](#license)
 
-This plugin bridges the gap between Obsidian's syntax and standard web Markdown.
+## What is this?
 
-### Wiki Links
+This is a [remark](https://github.com/remarkjs/remark) plugin that transforms **Obsidian-specific markdown syntax** into standard compatible Markdown (MDAST) or HTML. It bridges the gap between your personal knowledge base and your web publisher.
 
-Link to other notes without needing absolute paths or URL encoding.
+It handles features unique to Obsidian, like **Wiki Links** (`[[Note]]`), **Embeds** (`![[Note]]`), **Callouts** (`> [!info]`), and **Highlights** (`==text==`), resolving them correctly against your file system so they work in static site generators like Next.js, Gatsby, or Astro.
 
-- `[[Note Name]]` → `<a href="/content/note-name">Note Name</a>`
-- `[[Note Name|Custom Label]]` → `<a href="...">Custom Label</a>`
-- `[[Note Name#Heading]]` → Link to a specific heading in another note.
-- `[[#Local Heading]]` → Anchor link to a heading on the current page.
+## When should I use this?
 
-### Images & Resizing
+Use this plugin if:
 
-Standard Obsidian image syntax is fully supported, including resizing syntax which is converted to standard HTML attributes.
-
-- `![[image.png]]` → Standard image embed.
-- `![[image.png|Alt Text]]` → Image with Alt Text.
-- `![[image.png|300]]` → Image resized to **300px width** (preserves aspect ratio).
-
-### Note Embedding (Transclusion)
-
-Embed the content of one note inside another. The plugin recursively parses the embedded content, ensuring links and images inside the embedded note work correctly.
-
-- `![[My Page]]` → Inlines the entire content of "My Page" into the current document.
+- You use **Obsidian.md** to write content and want to publish it to the web (e.g., a Digital Garden or Blog).
+- You want to preserve Obsidian's internal linking graph (`[[Link]]`) without manually converting links to standard markdown (`[Link](./path/to/file.md)`).
+- You use **Next.js**, **Fumadocs**, or **Contentlayer** and want to support Obsidian callouts and highlights out of the box.
 
 ## Installation
 
@@ -44,52 +48,105 @@ pnpm add remark-obsidian-md
 yarn add remark-obsidian-md
 ```
 
+## Features
+
+### Wiki Links
+
+The plugin scans your `root` directory to resolve file paths automatically. You don't need to know the relative path; just the filename is enough.
+
+- **Standard:** `[[My File]]` → becomes a link to `/my-file` (slugified).
+- **Headings:** `[[My File#Some Heading]]` or `[[#Some Heading]]` → links to the specific anchor in the page.
+
+#### Aliasing
+
+You can display custom text for a link using the pipe `|` separator.
+
+- `[[My File|Click Here]]` → Renders a link pointing to `My File` but displaying "Click Here".
+
+#### Images & Resizing
+
+Images support standard embedding and Obsidian's resizing syntax.
+
+- `[[image.png]]` → Link to open just the image.
+- `![[image.png]]` → Renders the image in the page.
+- `[[image.png|300]]` → Renders the image with `width="300"`.
+
+#### Note Embedding
+
+Using `![[My Note]]` will embed the content of that note directly into the current page.
+
+- _Note: Embedding specific headings (e.g., `![[My Note#Heading]]`) is not currently supported._
+
+### Callouts
+
+Supports standard Obsidian callouts (e.g., `> [!info] Title`).
+
+- **Icons:** automatically applies Lucide icons matching the default Obsidian callouts types (info, tip, warning, etc.).
+- **Customization:** You can overwrite icons or add new types via the `callouts` option.
+- **Rendering:** By default, renders as HTML `div` blocks with `data-callout` attributes. You can opt-in to render as a MDX component `<Callout>` instead (see [`Options`](#options)).
+
+#### Collapsable
+
+Supports the fold syntax:
+
+- `> [!info]+` (Open by default)
+- `> [!info]-` (Collapsed by default)
+
+### Highlights
+
+Text wrapped in double equals `==highlighted text==` is transformed into an HTML `<mark>highlighted text</mark>` tag.
+
 ## Usage
 
-### 1. Basic Usage (Unified/Remark)
+### Unified / Remark
 
-To work efficiently, this plugin builds a **Content Map** — a dictionary mapping lowercase filenames (e.g., "my note") to their metadata (path, dimensions). By default, it scans the `root` directory to build this map automatically.
+Use it as a standard plugin in your unified processor. You can provide the `root` directory so the plugin know how to resolve file paths (defaults to `./public/`).
 
-```ts
+```javascript
 import { unified } from "unified";
 import remarkParse from "remark-parse";
+import remarkObsidianMd from "remark-obsidian-md";
 import remarkRehype from "remark-rehype";
 import rehypeStringify from "rehype-stringify";
-import remarkObsidianMd from "remark-obsidian-md";
 
-const processor = unified()
+const file = await unified()
   .use(remarkParse)
+  // Add the plugin here
   .use(remarkObsidianMd, {
-    // Root folder to scan for files and resolve embeds
-    root: "./public",
+    root: "./public/vault",
+    // Add another options here
   })
   .use(remarkRehype)
-  .use(rehypeStringify);
-
-const file = await processor.process(
-  "Read [[My Note]] or see ![[image.png|200]]",
-);
+  .use(rehypeStringify)
+  .process("[[My Note]]");
 
 console.log(String(file));
 ```
 
-### 2. Usage with Next.js / Fumadocs
+### Next.js / Fumadocs
 
-This plugin was designed to work with Fumadocs. Add it to your `source.config.ts` to enable Obsidian syntax across your documentation.
+If you are using **Fumadocs**, add the plugin to your source configuration.
 
 ```ts
 // source.config.ts
 import { defineConfig, defineDocs } from "fumadocs-mdx/config";
-import remarkObsidianMd, { type PluginOptions } from "remark-obsidian-md";
+import remarkObsidianMd, { type Options } from "remark-obsidian-md";
 
 export const content = defineDocs({
-  dir: "./public", // Your markdown content directory
+  dir: "./public/vault", // Your markdown content directory
 });
 
 export default defineConfig({
   mdxOptions: {
     remarkPlugins: [
-      [remarkObsidianMd, { root: "./public" } satisfies PluginOptions],
+      [
+        remarkObsidianMd,
+        {
+          root: "./public/vault",
+          // Optional: Add a prefix if your docs live under /docs
+          urlPrefix: "/docs",
+        } satisfies Options,
+      ],
     ],
   },
 });
@@ -97,22 +154,105 @@ export default defineConfig({
 
 ## Options
 
-### The `ContentMetadata` Interface
+| Option                | Type                       | Default      | Description                                                                                        |
+| :-------------------- | :------------------------- | :----------- | :------------------------------------------------------------------------------------------------- |
+| `root`                | `string`                   | `"./public"` | Directory path where your Obsidian vault/markdown files are located.                               |
+| `urlPrefix`           | `string`                   | `undefined`  | A string to prepend to all generated URLs (e.g., `"/docs"`).                                       |
+| `enableWikiLinks`     | `boolean`                  | `true`       | Enable parsing of `[[Wiki Links]]`.                                                                |
+| `enableEmbeds`        | `boolean`                  | `true`       | Enable parsing of `![[Embeds]]`.                                                                   |
+| `enableCallouts`      | `boolean`                  | `true`       | Enable parsing of `> [!type]` blocks.                                                              |
+| `enableHighlights`    | `boolean`                  | `true`       | Enable parsing of `==highlight==`.                                                                 |
+| `useMdxCallout`       | `boolean`                  | `false`      | If `true`, renders a `<Callout>` component instead of HTML `div`s. Useful for MDX.                 |
+| `calloutCollapseIcon` | `string`                   | -            | Custom SVG for the Callout collapse icon.                                                          |
+| `slugify`             | `(text: string) => string` | -            | Custom function to convert file names to URLs.                                                     |
+| `callouts`            | `Record<string, string>`   | -            | Map of callout types to SVG icon strings. Use this to add custom icons.                            |
+| `customProps`         | `object`                   | -            | Inject custom HTML attributes/classes into generated nodes (wikiLinks, callouts, highlights, etc). |
+| `contentMap`          | `Map<string, Metadata>`    | -            | **Advanced:** Manually provide the map of files instead of scanning `root`.                        |
 
-If you provide a custom `getContentMap` function, your map values must match this interface:
+## Examples
+
+### Custom Callout Icons
+
+You can register your own callout types or overwrite existing ones by passing SVG strings.
 
 ```ts
-type ContentMetadata = {
-  path: string; // The resolved URL or file path (relative to root)
-  type: "md" | "img"; // The type of content
-  width?: number; // Width (Required for images to support Next.js Image optimization)
-  height?: number; // Height (Required for images)
-};
+use(remarkObsidianMd, {
+  callouts: {
+    "my-custom-type": "<svg>...</svg>", // Usage: `> [!my-custom-type] Title`
+    note: "<svg>...</svg>", // Overwrites the default 'note' icon
+  },
+});
 ```
 
-## Roadmap & Next Steps
+### Styling Callouts
 
-We are actively working on making this the ultimate Obsidian adapter for the web.
+You can import the default CSS styles included in the package:
+
+```ts
+import "remark-obsidian-md/styles/callouts.css";
+import "remark-obsidian-md/styles/callouts-colors.css";
+
+// if that doesn't work, try to import directly from the node modules
+import "../../node_modules/styles/callouts.css";
+import "../../node_modules/styles/callouts-colors.css";
+```
+
+Or manually style the elements. The plugin produces the following HTML structure for callouts:
+
+- **Normal Callouts:**
+
+```html
+<div class="callout" data-callout="type">
+  <div class="callout-title">
+    <div class="callout-icon">
+      <svg><!-- ... --></svg>
+    </div>
+
+    Callout Title
+  </div>
+
+  <p>Callout content</p>
+</div>
+```
+
+- **Collapsable Callouts:**
+
+```html
+<details class="callout" data-callout="type" open>
+  <summary class="callout-title">
+    <div class="callout-icon">
+      <svg><!-- ... --></svg>
+    </div>
+
+    Callout Title
+
+    <div class="callout-collapse-icon">
+      <svg><!-- ... --></svg>
+    </div>
+  </summary>
+
+  <p>Callout content</p>
+</details>
+```
+
+#### Custom Callout Colors
+
+If you want to customize the callouts colors, you can easily do so by adding the following CSS styles:
+
+```css
+[data-callout="note"] {
+  --callout-color: 2, 122, 255; /* rgb */
+}
+```
+
+## Types
+
+This package is fully typed with [TypeScript](https://www.typescriptlang.org).
+It exports the additional type [`Options`](#nextjs--fumadocs).
+
+The node types are supported in [`@types/mdast`](https://www.npmjs.com/package/@types/mdast) by default.
+
+## Next Steps
 
 - **YAML Frontmatter Handling:** Parse Wiki Links inside frontmatter fields (e.g., `related: "[[Another Note]]"`).
 - **Smart Embed Cleaning:** Automatically strip YAML frontmatter from embedded notes.
@@ -121,7 +261,7 @@ We are actively working on making this the ultimate Obsidian adapter for the web
 
 ## Credits
 
-- [Lucide](https://lucide.dev/) - default callouts icons.
+- [Lucide](https://lucide.dev/): default callouts icons.
 
 ## License
 
