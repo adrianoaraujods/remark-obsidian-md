@@ -1,5 +1,3 @@
-// tests/wiki-links-processing.test.ts
-
 import fs from "node:fs";
 import path from "node:path";
 import type { Code, InlineCode, Link, Paragraph, Text } from "mdast";
@@ -23,23 +21,21 @@ describe("processWikiLinks", async () => {
     process.cwd(),
     `${FIXTURES_DIR}/${MARKDOWN_TEST_FILE_NAME}`,
   );
+
+  if (!fs.existsSync(fixturePath)) {
+    throw new Error(`Fixture file not found: ${fixturePath}`);
+  }
+
   const markdownContent = fs.readFileSync(fixturePath, "utf-8");
+  const processor = unified().use(remarkParse);
+  const tree = processor.parse(markdownContent);
 
-  // 2. Setup a ContentMap manually to match the links in the fixture.
-  // We do this to ensure the links resolve successfully during the transformation.
   const contentMap = await getContentMap("./tests/fixtures");
-
   const options: Required<Options> = {
     ...DEFAULT_OPTIONS,
     callouts: DEFAULT_CALLOUTS,
     contentMap,
   };
-
-  // 3. Setup the Unified Processor
-  const processor = unified().use(remarkParse);
-
-  // 4. Parse and Transform
-  const tree = processor.parse(markdownContent);
 
   processWikiLinks(processor as unknown as Processor, tree, options);
 
