@@ -1,8 +1,11 @@
-import type { Root } from "mdast";
+import type { FrontmatterContent, Root } from "mdast";
 import type { Processor, Transformer } from "unified";
+import type { VFile } from "vfile";
+
 import { DEFAULT_CALLOUTS, processCallouts } from "./callouts.js";
 import { type ContentMetadata, getContentMap } from "./content-map.js";
 import { processEmbeds } from "./embeds.js";
+import { processFrontmatter } from "./frontmatter.js";
 import { processHighlights } from "./highlights.js";
 import { DEFAULT_OPTIONS, type Options } from "./types.js";
 import type { slugify } from "./utils.js";
@@ -19,7 +22,7 @@ function remarkObsidianMd(
     customProps: options?.customProps || {},
   };
 
-  return async (tree: Root) => {
+  return async (tree: Root, file: VFile) => {
     if (!pluginOptions.contentMap) {
       pluginOptions.contentMap = await getContentMap(pluginOptions.root);
     }
@@ -38,6 +41,10 @@ function remarkObsidianMd(
 
     if (pluginOptions.enableCallouts) {
       processCallouts(tree, pluginOptions);
+    }
+
+    if (pluginOptions.enableFrontmatter) {
+      processFrontmatter(tree, file.path, pluginOptions as Required<Options>);
     }
   };
 }

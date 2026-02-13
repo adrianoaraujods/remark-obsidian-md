@@ -1,5 +1,10 @@
+import type { RootContent } from "mdast";
+
+import type { Element } from "./types.js";
+
 export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/;
 export const HIGHLIGHT_REGEX = /==(.*?)==/;
+export const FRONTMATTER_REGEX = /^---([\s\S]*?)---\r?\n?/;
 
 // Regex to match: > [!type]+/- Title
 // Group 1: Type (e.g., "note", "warning")
@@ -37,4 +42,27 @@ export function slugify(text: string): string {
       .replace(/^-+|-+$/g, "")
       .replace(/-+/g, "-")
   );
+}
+
+/**
+ * Helper function to create nodes
+ * @param name The name of HTML element tag
+ * @param properties The properties of the element
+ * @param children The children nodes
+ */
+export function h(
+  name: string,
+  { hChildren, ...properties }: Element["data"]["hProperties"] = {},
+  children: RootContent[] = [],
+): RootContent {
+  return {
+    type: "element",
+    name,
+    data: {
+      hName: name,
+      hProperties: properties,
+      hChildren,
+    },
+    children,
+  };
 }

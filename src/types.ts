@@ -1,5 +1,7 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: HTML element properties could be of any type */
 
+import type { Node, RootContent } from "mdast";
+
 import type { DefaultCallout } from "./callouts.js";
 import { type ContentMetadata, getContentMap } from "./content-map.js";
 import { SVG_ARROW_RIGHT } from "./icons.js";
@@ -54,6 +56,12 @@ export type Options = {
   enableHighlights?: boolean;
 
   /**
+   * If you want to render the custom frontmatter (YAML) component.
+   * @default true
+   */
+  enableFrontmatter?: boolean;
+
+  /**
    * Custom SVG to replace the callout collapse icon
    */
   calloutCollapseIcon?: string;
@@ -70,6 +78,11 @@ export type Options = {
   urlPrefix?: string;
 
   /**
+   * If you want to hide some frontmatter properties inside the custom component.
+   */
+  ignoredFrontmatterKeys?: string[];
+
+  /**
    * Custom HTML properties for each type of node.
    */
   customProps?: {
@@ -83,6 +96,31 @@ export type Options = {
       icon?: Record<string, any>;
       title?: Record<string, any>;
       collapse?: Record<string, any>;
+    };
+    frontmatter?: {
+      container?: Record<string, any>;
+      title?: Record<string, any> & {
+        /**
+         * This will be used as the text inside the element
+         */
+        children?: string;
+      };
+      icon?: Record<string, any> & {
+        /**
+         * This will be used in the place of the SVG inside the element
+         */
+        children?: string;
+      };
+      collapse?: Record<string, any> & {
+        /**
+         * This will be used in the place of the SVG inside the element
+         */
+        children?: string;
+      };
+      properties?: Record<string, any>;
+      property?: Record<string, any>;
+      key?: Record<string, any>;
+      value?: Record<string, any>;
     };
   };
 
@@ -99,10 +137,28 @@ export const DEFAULT_OPTIONS = {
   enableEmbeds: true,
   enableCallouts: true,
   enableHighlights: true,
+  enableFrontmatter: true,
   useMdxCallout: false,
+  ignoredFrontmatterKeys: [],
   calloutCollapseIcon: SVG_ARROW_RIGHT,
   root: "./public",
   slugify,
   customProps: {},
   urlPrefix: "",
 } satisfies Options;
+
+export interface Element extends Node {
+  type: "element";
+  name: string;
+  data: Record<string, any> & {
+    hName: string;
+    hProperties: Record<string, any> & { className?: string };
+  };
+  children: RootContent[];
+}
+
+declare module "mdast" {
+  interface RootContentMap {
+    element: Element;
+  }
+}

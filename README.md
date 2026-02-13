@@ -94,6 +94,10 @@ Supports the fold syntax:
 
 Text wrapped in double equals `==highlighted text==` is transformed into an HTML `<mark>highlighted text</mark>` tag.
 
+### Frontmatter
+
+Creates an component that mimics the way Obsidian.md displays frontmatter (YAML) properties.
+
 ## Usage
 
 ### Unified / Remark
@@ -160,6 +164,7 @@ export default defineConfig({
 | `enableEmbeds`        | `boolean`                  | `true`       | Enable parsing of `![[Embeds]]`.                                                                   |
 | `enableCallouts`      | `boolean`                  | `true`       | Enable parsing of `> [!type]` blocks.                                                              |
 | `enableHighlights`    | `boolean`                  | `true`       | Enable parsing of `==highlight==`.                                                                 |
+| `enableFrontmatter`   | `boolean`                  | `true`       | Enable custom frontmatter (YAML) component.                                                        |
 | `useMdxCallout`       | `boolean`                  | `false`      | If `true`, renders a `<Callout>` component instead of HTML `div`s. Useful for MDX.                 |
 | `calloutCollapseIcon` | `string`                   | -            | Custom SVG for the Callout collapse icon.                                                          |
 | `slugify`             | `(text: string) => string` | -            | Custom function to convert file names to URLs.                                                     |
@@ -182,20 +187,22 @@ use(remarkObsidianMd, {
 });
 ```
 
-### Styling Callouts
+### Custom Styling
 
 You can import the default CSS styles included in the package:
 
 ```ts
 import "remark-obsidian-md/styles/callouts.css";
 import "remark-obsidian-md/styles/callouts-colors.css";
+import "remark-obsidian-md/styles/frontmatter.css";
 
 // if that doesn't work, try to import directly from the node modules
 import "../../node_modules/styles/callouts.css";
 import "../../node_modules/styles/callouts-colors.css";
+import "../../node_modules/styles/frontmatter.css";
 ```
 
-Or manually style the elements. The plugin produces the following HTML structure for callouts:
+Or manually style the elements. The plugin produces the following HTML structure:
 
 - **Normal Callouts:**
 
@@ -233,6 +240,61 @@ Or manually style the elements. The plugin produces the following HTML structure
 </details>
 ```
 
+- **Frontmatter:**
+
+```html
+<details class="frontmatter" open>
+  <summary class="frontmatter-title">
+    <div class="frontmatter-collapse-icon">
+      <svg><!-- ... --></svg>
+    </div>
+
+    Properties
+  </summary>
+
+  <ul class="frontmatter-properties">
+    <!-- String | Number | Date | Time -->
+    <li class="frontmatter-property">
+      <div class="frontmatter-icon">
+        <svg><!-- ... --></svg>
+      </div>
+
+      <div class="frontmatter-property-key">Key name</div>
+
+      <div class="frontmatter-property-value" data-type="string">Value</div>
+    </li>
+
+    <!-- Boolean -->
+    <li class="frontmatter-property">
+      <div class="frontmatter-icon">
+        <svg><!-- ... --></svg>
+      </div>
+
+      <div class="frontmatter-property-key">Key name</div>
+
+      <div class="frontmatter-property-value" data-type="boolean">
+        <input type="checkbox" disabled checked />
+      </div>
+    </li>
+
+    <!-- List -->
+    <li class="frontmatter-property">
+      <div class="frontmatter-icon">
+        <svg><!-- ... --></svg>
+      </div>
+
+      <div class="frontmatter-property-key">Key name</div>
+      <div class="frontmatter-property-value" data-type="list">
+        <ul>
+          <li>String value</li>
+          <li><a href="...">Links</a></li>
+        </ul>
+      </div>
+    </li>
+  </ul>
+</details>
+```
+
 #### Custom Callout Colors
 
 If you want to customize the callouts colors, you can easily do so by adding the following CSS styles:
@@ -249,10 +311,6 @@ This package is fully typed with [TypeScript](https://www.typescriptlang.org).
 It exports the additional type [`Options`](#nextjs--fumadocs).
 
 The node types are supported in [`@types/mdast`](https://www.npmjs.com/package/@types/mdast) by default.
-
-## Next Steps
-
-- **YAML Frontmatter Handling:** Parse Wiki Links inside frontmatter fields (e.g., `related: "[[Another Note]]"`).
 
 ## Credits
 

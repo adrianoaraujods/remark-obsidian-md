@@ -3,9 +3,34 @@ import path from "node:path";
 import type { Heading, PhrasingContent, Root, RootContent } from "mdast";
 import { findAndReplace } from "mdast-util-find-and-replace";
 import type { Processor } from "unified";
+
 import { MAX_EMBED_DEPTH } from "./embeds.js";
 import type { Options } from "./types.js";
-import { WIKI_LINK_REGEX } from "./utils.js";
+import { FRONTMATTER_REGEX, WIKI_LINK_REGEX } from "./utils.js";
+
+export function parseWikiLink(content: string) {
+  const pipeIndex = content.indexOf("|");
+
+  let rawTarget: string;
+  let alias: string | undefined;
+
+  if (pipeIndex === -1) {
+    rawTarget = content;
+  } else {
+    rawTarget = content.slice(0, pipeIndex);
+    alias = content.slice(pipeIndex + 1).trim();
+  }
+
+  // Clean up whitespace and normalize slashes
+  rawTarget = rawTarget.replace(/\\/g, "/").trim();
+  if (!rawTarget || rawTarget === "") return null;
+
+  let [target, anchor] = rawTarget.split("#");
+  target = target ? target.trim() : "";
+  anchor = anchor ? anchor.trim().toLocaleLowerCase() : undefined;
+
+  return { target, alias, anchor, rawTarget };
+}
 
 export function processWikiLinks(
   processor: Processor,
@@ -19,25 +44,10 @@ export function processWikiLinks(
     [
       WIKI_LINK_REGEX,
       (_: string, embed: string, content: string) => {
-        const pipeIndex = content.indexOf("|");
+        const wikilink = parseWikiLink(content);
+        if (!wikilink) return false;
+        const { alias, anchor, target, rawTarget } = wikilink;
 
-        let rawTarget = "";
-        let alias: string | undefined;
-
-        if (pipeIndex === -1) {
-          rawTarget = content;
-        } else {
-          rawTarget = content.slice(0, pipeIndex);
-          alias = content.slice(pipeIndex + 1).trim();
-        }
-
-        // Clean up whitespace and normalize slashes
-        rawTarget = rawTarget.replace(/\\/g, "/").trim();
-        if (!rawTarget || rawTarget === "") return false;
-
-        let [target, anchor] = rawTarget.split("#");
-        target = target ? target.trim() : "";
-        anchor = anchor ? anchor.trim().toLocaleLowerCase() : undefined;
         const label = alias || rawTarget;
 
         // CASE 1: Standard WikiLink to Heading
@@ -108,7 +118,7 @@ export function processWikiLinks(
 
             // remove YAML frontmatter
             if (embedContent.startsWith("---")) {
-              embedContent = embedContent.replace(/^---[\s\S]*?---\r?\n?/, "");
+              embedContent = embedContent.replace(FRONTMATTER_REGEX, "");
             }
 
             const embedTree = processor.parse(embedContent) as Root;
