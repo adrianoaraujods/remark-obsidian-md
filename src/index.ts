@@ -1,4 +1,4 @@
-import type { FrontmatterContent, Root } from "mdast";
+import type { Root } from "mdast";
 import type { Processor, Transformer } from "unified";
 import type { VFile } from "vfile";
 
@@ -8,7 +8,7 @@ import { processEmbeds } from "./embeds.js";
 import { processFrontmatter } from "./frontmatter.js";
 import { processHighlights } from "./highlights.js";
 import { DEFAULT_OPTIONS, type Options } from "./types.js";
-import type { slugify } from "./utils.js";
+import { slugify } from "./utils.js";
 import { processWikiLinks } from "./wiki-links.js";
 
 function remarkObsidianMd(
@@ -50,4 +50,4 @@ function remarkObsidianMd(
 }
 
 export default remarkObsidianMd;
-export { getContentMap, type slugify, type Options, type ContentMetadata };
+export { getContentMap, slugify, type Options, type ContentMetadata };
