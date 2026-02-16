@@ -30,7 +30,7 @@ describe("processWikiLinks", async () => {
   const processor = unified().use(remarkParse);
   const tree = processor.parse(markdownContent);
 
-  const contentMap = await getContentMap("./tests/fixtures");
+  const contentMap = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
   const options: Required<Options> = {
     ...DEFAULT_OPTIONS,
     callouts: DEFAULT_CALLOUTS,

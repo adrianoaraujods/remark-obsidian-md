@@ -1,13 +1,12 @@
-import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Type for the module import
 import type * as ContentMapModule from "../src/content-map";
 
+const FIXTURES_DIR = "tests/fixtures";
+
 describe("getContentMap", () => {
   let getContentMap: typeof ContentMapModule.getContentMap;
-
-  const fixturesDir = path.join(process.cwd(), "tests/fixtures");
 
   beforeEach(async () => {
     // Clear the cache (the global `let contentMap` variable)
@@ -19,7 +18,7 @@ describe("getContentMap", () => {
   });
 
   it("should find markdown files in the root", async () => {
-    const result = await getContentMap(fixturesDir);
+    const result = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
 
     expect(result.get("wiki links")).toEqual({
       type: "md",
@@ -28,7 +27,7 @@ describe("getContentMap", () => {
   });
 
   it("should find nested markdown files (recursive)", async () => {
-    const result = await getContentMap(fixturesDir);
+    const result = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
 
     expect(result.get("nested")).toEqual({
       type: "md",
@@ -37,7 +36,7 @@ describe("getContentMap", () => {
   });
 
   it("should find valid images and calculate dimensions", async () => {
-    const result = await getContentMap(fixturesDir);
+    const result = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
     const image = result.get("image.png");
 
     expect(image).toBeDefined();
@@ -50,7 +49,7 @@ describe("getContentMap", () => {
   });
 
   it("should ignore files that are not md or images", async () => {
-    const result = await getContentMap(fixturesDir);
+    const result = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
 
     // random.txt should not be in the map
     expect(result.get("file")).toBeUndefined();
@@ -58,7 +57,7 @@ describe("getContentMap", () => {
   });
 
   it("should ignore corrupt images", async () => {
-    const result = await getContentMap(fixturesDir);
+    const result = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
 
     // Corrupt.png should be skipped because image-size throws/returns undefined
     expect(result.get("Corrupt.png")).toBeUndefined();
@@ -66,10 +65,10 @@ describe("getContentMap", () => {
 
   it("should use the memoized cache on subsequent calls", async () => {
     // First Call
-    const map1 = await getContentMap(fixturesDir);
+    const map1 = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
 
     // Second Call
-    const map2 = await getContentMap(fixturesDir);
+    const map2 = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
 
     // Ensure strictly equal reference (same object in memory)
     expect(map1).toBe(map2);

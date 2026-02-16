@@ -24,7 +24,10 @@ function remarkObsidianMd(
 
   return async (tree: Root, file: VFile) => {
     if (!pluginOptions.contentMap) {
-      pluginOptions.contentMap = await getContentMap(pluginOptions.root);
+      pluginOptions.contentMap = await getContentMap(
+        pluginOptions.root,
+        pluginOptions.publicFolder,
+      );
     }
 
     if (pluginOptions.enableWikiLinks) {

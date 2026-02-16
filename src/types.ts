@@ -15,6 +15,12 @@ export type Options = {
   root?: string;
 
   /**
+   * The directory path where the obsidian vault is located.
+   * @default "./public"
+   */
+  publicFolder?: string;
+
+  /**
    * A function that converts a string into a URL-friendly slug.
    * @param text
    * @returns
@@ -142,6 +148,7 @@ export const DEFAULT_OPTIONS = {
   ignoredFrontmatterKeys: [],
   calloutCollapseIcon: SVG_ARROW_RIGHT,
   root: "./public",
+  publicFolder: "./public",
   slugify,
   customProps: {},
   urlPrefix: "",

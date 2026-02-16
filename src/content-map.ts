@@ -20,13 +20,15 @@ let contentMap: Map<string, ContentMetadata> | null = null;
 
 export async function getContentMap(
   rootDir: string,
+  publicDir: string,
 ): Promise<Map<string, ContentMetadata>> {
   if (contentMap !== null) return contentMap;
 
   const map = new Map<string, ContentMetadata>();
-  const publicAbsPath = path.resolve(process.cwd(), rootDir);
+  const rootPath = path.resolve(process.cwd(), rootDir);
+  const publicPath = path.resolve(process.cwd(), publicDir);
 
-  const stack = [publicAbsPath];
+  const stack = [rootPath];
 
   while (stack.length > 0) {
     const currentDir = stack.pop();
@@ -46,13 +48,13 @@ export async function getContentMap(
 
       const ext = path.extname(entry.name).toLowerCase();
 
-      const relativePath = `/${path
-        .relative(publicAbsPath, fullPath)
-        .replace(/\\/g, "/")}`;
-
       if (hasImageExtension(ext)) {
         const dimensions = await getImageDimensions(fullPath);
         if (!dimensions) continue;
+
+        const relativePath = `/${path
+          .relative(publicPath, fullPath)
+          .replace(/\\/g, "/")}`;
 
         map.set(entry.name.toLowerCase(), {
           type: "img",
@@ -65,6 +67,10 @@ export async function getContentMap(
       }
 
       if (ext !== ".md") continue;
+
+      const relativePath = `/${path
+        .relative(rootPath, fullPath)
+        .replace(/\\/g, "/")}`;
 
       const fileBaseName = path.parse(entry.name).name.toLowerCase();
       map.set(fileBaseName, { type: "md", path: relativePath });
