@@ -247,7 +247,20 @@ function formatValue(value: unknown, options: Required<Options>): ValueNode {
   const label = alias || target;
 
   const metadata = options.contentMap.get(target.toLocaleLowerCase());
-  if (!metadata) return fallback;
+  if (!metadata) {
+    return {
+      type: "string",
+      icon: SVG_TEXT,
+      nodes: [
+        {
+          type: "link",
+          url: "#",
+          children: [{ type: "text", value: label }],
+          data: { hProperties: options.customProps.notFoundWikiLinks },
+        },
+      ],
+    };
+  }
 
   const isImage = metadata.type === "img";
   if (isImage) {
