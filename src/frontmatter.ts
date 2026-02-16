@@ -158,18 +158,34 @@ function formatValue(value: unknown, options: Required<Options>): ValueNode {
     };
   }
 
-  if (value instanceof Date) {
-    const [date, time] = value.toISOString().split("T");
-    const dateOnly = time === "00:00:00.000Z";
+  let dateValue = value;
+  if (typeof value === "string") {
+    const ISO_LIKE_REGEX =
+      /^\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2})?)?(?:Z|[+-]\d{2}:?\d{2})?$/;
+    if (ISO_LIKE_REGEX.test(value)) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        dateValue = parsed;
+      }
+    }
+  }
 
-    if (dateOnly) {
+  if (dateValue instanceof Date) {
+    const isMidnight =
+      dateValue.getUTCHours() === 0 &&
+      dateValue.getUTCMinutes() === 0 &&
+      dateValue.getUTCSeconds() === 0;
+
+    const showTime = !isMidnight;
+
+    if (!showTime) {
       return {
         type: "date",
         icon: SVG_CALENDAR,
         nodes: [
           {
             type: "text",
-            value: value.toLocaleDateString([], {
+            value: dateValue.toLocaleDateString([], {
               timeZone: "UTC",
               month: "2-digit",
               day: "2-digit",
@@ -186,12 +202,16 @@ function formatValue(value: unknown, options: Required<Options>): ValueNode {
       nodes: [
         {
           type: "text",
-          value: `${value.toLocaleDateString([], {
+          value: `${dateValue.toLocaleDateString([], {
             timeZone: "UTC",
             month: "2-digit",
             day: "2-digit",
             year: "numeric",
-          })}, ${value.toLocaleTimeString([], { minute: "2-digit", hour: "2-digit", timeZone: "UTC" })}`,
+          })}, ${dateValue.toLocaleTimeString([], {
+            minute: "2-digit",
+            hour: "2-digit",
+            timeZone: "UTC",
+          })}`,
         },
       ],
     };
