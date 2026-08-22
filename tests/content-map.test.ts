@@ -18,7 +18,7 @@ describe("getContentMap", () => {
   });
 
   it("should find markdown files in the root", async () => {
-    const result = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
+    const result = await getContentMap(FIXTURES_DIR);
 
     expect(result.get("wiki links")).toEqual({
       type: "md",
@@ -27,7 +27,7 @@ describe("getContentMap", () => {
   });
 
   it("should find nested markdown files (recursive)", async () => {
-    const result = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
+    const result = await getContentMap(FIXTURES_DIR);
 
     expect(result.get("nested")).toEqual({
       type: "md",
@@ -35,40 +35,27 @@ describe("getContentMap", () => {
     });
   });
 
-  it("should find valid images and calculate dimensions", async () => {
-    const result = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
-    const image = result.get("image.png");
-
-    expect(image).toBeDefined();
-    expect(image).toEqual({
-      type: "img",
-      path: "/Image.png",
-      width: 400,
-      height: 400,
-    });
-  });
-
   it("should ignore files that are not md or images", async () => {
-    const result = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
+    const result = await getContentMap(FIXTURES_DIR);
 
     // random.txt should not be in the map
     expect(result.get("file")).toBeUndefined();
     expect(result.get("file.txt")).toBeUndefined();
   });
 
-  it("should ignore corrupt images", async () => {
-    const result = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
+  it("should ignore image files", async () => {
+    const result = await getContentMap(FIXTURES_DIR);
 
-    // Corrupt.png should be skipped because image-size throws/returns undefined
-    expect(result.get("Corrupt.png")).toBeUndefined();
+    // Image.png should not be scanned (image support was removed)
+    expect(result.get("image.png")).toBeUndefined();
   });
 
   it("should use the memoized cache on subsequent calls", async () => {
     // First Call
-    const map1 = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
+    const map1 = await getContentMap(FIXTURES_DIR);
 
     // Second Call
-    const map2 = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
+    const map2 = await getContentMap(FIXTURES_DIR);
 
     // Ensure strictly equal reference (same object in memory)
     expect(map1).toBe(map2);

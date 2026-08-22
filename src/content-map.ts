@@ -1,32 +1,24 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import {
-  getImageDimensions,
-  hasImageExtension,
-  type ImageFileMetadata,
-} from "./images.js";
-
 export type FileMetadata = {
   path: string;
 };
 
 type MarkdownFileMetadata = FileMetadata & { type: "md" };
 
-export type ContentMetadata = MarkdownFileMetadata | ImageFileMetadata;
+export type ContentMetadata = MarkdownFileMetadata;
 
 // Global cache to prevent re-scanning the entire directory on every file change
 let contentMap: Map<string, ContentMetadata> | null = null;
 
 export async function getContentMap(
   rootDir: string,
-  publicDir: string,
 ): Promise<Map<string, ContentMetadata>> {
   if (contentMap !== null) return contentMap;
 
   const map = new Map<string, ContentMetadata>();
   const rootPath = path.resolve(process.cwd(), rootDir);
-  const publicPath = path.resolve(process.cwd(), publicDir);
 
   const stack = [rootPath];
 
@@ -47,25 +39,6 @@ export async function getContentMap(
       if (!entry.isFile()) continue;
 
       const ext = path.extname(entry.name).toLowerCase();
-
-      if (hasImageExtension(ext)) {
-        const dimensions = await getImageDimensions(fullPath);
-        if (!dimensions) continue;
-
-        const relativePath = `/${path
-          .relative(publicPath, fullPath)
-          .replace(/\\/g, "/")}`;
-
-        map.set(entry.name.toLowerCase(), {
-          type: "img",
-          path: relativePath,
-          width: dimensions.width,
-          height: dimensions.height,
-        });
-
-        continue;
-      }
-
       if (ext !== ".md") continue;
 
       const relativePath = `/${path

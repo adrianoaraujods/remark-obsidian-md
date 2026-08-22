@@ -7,7 +7,6 @@ import { select, selectAll } from "unist-util-select";
 import { describe, expect, it } from "vitest";
 
 import type { Options } from "../src";
-import { DEFAULT_CALLOUTS } from "../src/callouts";
 import { getContentMap } from "../src/content-map";
 import { DEFAULT_OPTIONS } from "../src/types";
 import { processWikiLinks } from "../src/wiki-links";
@@ -30,10 +29,9 @@ describe("processWikiLinks", async () => {
   const processor = unified().use(remarkParse);
   const tree = processor.parse(markdownContent);
 
-  const contentMap = await getContentMap(FIXTURES_DIR, FIXTURES_DIR);
+  const contentMap = await getContentMap(FIXTURES_DIR);
   const options: Required<Options> = {
     ...DEFAULT_OPTIONS,
-    callouts: DEFAULT_CALLOUTS,
     contentMap,
   };
 

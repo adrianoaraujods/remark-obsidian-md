@@ -1,16 +1,6 @@
-import type { RootContent } from "mdast";
-
-import type { Element } from "./types.js";
-
 export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/;
 export const HIGHLIGHT_REGEX = /==(.*?)==/;
 export const FRONTMATTER_REGEX = /^---([\s\S]*?)---\r?\n?/;
-
-// Regex to match: > [!type]+/- Title
-// Group 1: Type (e.g., "note", "warning")
-// Group 2: Foldable (+, -, or undefined)
-// Group 3: Title (optional)
-export const CALLOUT_REGEX = /^\[!([\w-]+)\]([+-]?)(?:[ \t]+(.*))?(?:\n|$)/;
 
 /**
  * Converts a string into a URL-friendly slug.
@@ -45,24 +35,36 @@ export function slugify(text: string): string {
 }
 
 /**
- * Helper function to create nodes
- * @param name The name of HTML element tag
- * @param properties The properties of the element
- * @param children The children nodes
+ * Builds a root-relative, slugified URL from a vault-relative file path.
+ *
+ * @param path - The file path as stored in the content map (with or without a
+ *   leading slash).
+ * @param options.slugify - Slugify function used per path segment.
+ * @param options.urlPrefix - Optional prefix prepended to the URL (e.g. "/docs").
+ * @param options.anchor - Optional heading anchor (already lowercased).
+ * @returns A URL starting with `/`, e.g. `/docs/folder/note#some-heading`.
  */
-export function h(
-  name: string,
-  { hChildren, ...properties }: Element["data"]["hProperties"] = {},
-  children: RootContent[] = [],
-): RootContent {
-  return {
-    type: "element",
-    name,
-    data: {
-      hName: name,
-      hProperties: properties,
-      hChildren,
-    },
-    children,
-  };
+export function slugifyUrl(
+  path: string,
+  options: {
+    slugify: (text: string) => string;
+    urlPrefix?: string;
+    anchor?: string;
+  },
+): string {
+  const base = path.replace(/\.mdx?$/, "");
+  const slug = base
+    .split("/")
+    .filter(Boolean)
+    .map((part) => options.slugify(part))
+    .join("/");
+
+  const trimmedPrefix = options.urlPrefix?.replace(/^\/+|\/+$/g, "");
+  const prefixPart = trimmedPrefix ? `${trimmedPrefix}/` : "";
+
+  const anchorPart = options.anchor
+    ? `#${options.slugify(options.anchor)}`
+    : "";
+
+  return `/${prefixPart}${slug}${anchorPart}`;
 }

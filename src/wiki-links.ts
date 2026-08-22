@@ -6,7 +6,7 @@ import type { Processor } from "unified";
 
 import { MAX_EMBED_DEPTH } from "./embeds.js";
 import type { Options } from "./types.js";
-import { FRONTMATTER_REGEX, WIKI_LINK_REGEX } from "./utils.js";
+import { FRONTMATTER_REGEX, slugifyUrl, WIKI_LINK_REGEX } from "./utils.js";
 
 export function parseWikiLink(content: string) {
   const pipeIndex = content.indexOf("|");
@@ -27,7 +27,7 @@ export function parseWikiLink(content: string) {
 
   let [target, anchor] = rawTarget.split("#");
   target = target ? target.trim() : "";
-  anchor = anchor ? anchor.trim().toLocaleLowerCase() : undefined;
+  anchor = anchor ? anchor.trim().toLowerCase() : undefined;
 
   return { target, alias, anchor, rawTarget };
 }
@@ -61,7 +61,7 @@ export function processWikiLinks(
           };
         }
 
-        const metadata = contentMap.get(target.toLocaleLowerCase());
+        const metadata = contentMap.get(target.toLowerCase());
 
         // CASE 2: WikiLink (File Not found)
         if (!metadata) {
@@ -73,43 +73,10 @@ export function processWikiLinks(
           };
         }
 
-        const isImage = metadata.type === "img";
         const isEmbed = embed === "!";
 
-        // CASE 3: Embed Image
-        if (isEmbed && isImage) {
-          const resized = !Number.isNaN(Number(alias));
-          const altText = resized ? target : label;
-
-          return {
-            type: "image",
-            url: metadata.path,
-            alt: altText,
-            data: {
-              hProperties: {
-                ...customProps.imageEmbeds,
-                src: metadata.path,
-                alt: altText,
-                width: metadata.width,
-                height: metadata.height,
-                style: resized ? `width:${alias}px;` : undefined,
-              },
-            },
-          };
-        }
-
-        // CASE 4: WikiLink to Image
-        if (!isEmbed && isImage) {
-          return {
-            type: "link",
-            url: metadata.path,
-            children: [{ type: "text", value: label }],
-            data: { hProperties: customProps.imageLinks },
-          };
-        }
-
-        // CASE 5: Embed Text File WikiLink (Recursive Logic)
-        if (isEmbed && !isImage) {
+        // CASE 3: Embed Text File WikiLink (Recursive Logic)
+        if (isEmbed) {
           if (!options.enableEmbeds) return null;
 
           try {
@@ -184,12 +151,12 @@ export function processWikiLinks(
           }
         }
 
-        // CASE 6: Standard WikiLink to Text File
-        const slugifiedUrl = `${urlPrefix ? `${urlPrefix}/` : ""}${metadata.path
-          .replace(/\.mdx?$/, "")
-          .split("/")
-          .map((part) => slugify(part))
-          .join("/")}${anchor ? `#${slugify(anchor)}` : ""}`;
+        // CASE 4: Standard WikiLink to Text File
+        const slugifiedUrl = slugifyUrl(metadata.path, {
+          slugify,
+          urlPrefix,
+          ...(anchor ? { anchor } : {}),
+        });
 
         return {
           type: "link",

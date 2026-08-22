@@ -2,10 +2,13 @@ import type { Root } from "mdast";
 import type { Processor, Transformer } from "unified";
 import type { VFile } from "vfile";
 
-import { DEFAULT_CALLOUTS, processCallouts } from "./callouts.js";
 import { type ContentMetadata, getContentMap } from "./content-map.js";
 import { processEmbeds } from "./embeds.js";
-import { processFrontmatter } from "./frontmatter.js";
+import {
+  type FrontmatterLink,
+  type GetFrontmatterOptions,
+  getFrontmatter,
+} from "./frontmatter.js";
 import { processHighlights } from "./highlights.js";
 import { DEFAULT_OPTIONS, type Options } from "./types.js";
 import { slugify } from "./utils.js";
@@ -18,16 +21,12 @@ function remarkObsidianMd(
   const pluginOptions = {
     ...DEFAULT_OPTIONS,
     ...options,
-    callouts: { ...DEFAULT_CALLOUTS, ...options?.callouts },
     customProps: options?.customProps || {},
   };
 
-  return async (tree: Root, file: VFile) => {
+  return async (tree: Root, _file: VFile) => {
     if (!pluginOptions.contentMap) {
-      pluginOptions.contentMap = await getContentMap(
-        pluginOptions.root,
-        pluginOptions.publicFolder,
-      );
+      pluginOptions.contentMap = await getContentMap(pluginOptions.root);
     }
 
     if (pluginOptions.enableWikiLinks) {
@@ -41,16 +40,16 @@ function remarkObsidianMd(
     if (pluginOptions.enableHighlights) {
       processHighlights(tree, pluginOptions.customProps.highlights);
     }
-
-    if (pluginOptions.enableCallouts) {
-      processCallouts(tree, pluginOptions);
-    }
-
-    if (pluginOptions.enableFrontmatter) {
-      processFrontmatter(tree, file.path, pluginOptions as Required<Options>);
-    }
   };
 }
 
 export default remarkObsidianMd;
-export { getContentMap, slugify, type Options, type ContentMetadata };
+export {
+  getContentMap,
+  getFrontmatter,
+  slugify,
+  type Options,
+  type ContentMetadata,
+  type FrontmatterLink,
+  type GetFrontmatterOptions,
+};

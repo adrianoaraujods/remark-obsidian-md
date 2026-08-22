@@ -1,8 +1,8 @@
 {
   "name": "remark-obsidian-md",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "author": "Adriano Araújo (adrianoaraujodsantos@hotmail.com)",
-  "description": "Remark plugin to support Obsidian.md syntax (wiki links, callouts, highlights)",
+  "description": "Remark plugin to support Obsidian.md syntax (wiki links, highlights)",
   "license": "MIT",
   "keywords": [
     "remark",
@@ -10,13 +10,9 @@
     "markdown",
     "obsidian",
     "unified",
-    "admonitions",
     "wiki-links",
     "fumadocs",
-    "hast",
-    "callout",
-    "callouts",
-    "alerts"
+    "hast"
   ],
   "homepage": "https://github.com/adrianoaraujods/remark-obsidian-md#readme",
   "repository": "https://github.com/adrianoaraujods/remark-obsidian-md",
@@ -41,9 +37,6 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "hast-util-from-html": "^2.0.3",
-    "image-size": "^2.0.2",
-    "js-yaml": "^4.1.1",
     "mdast-util-find-and-replace": "^3.0.2",
     "unist-util-visit": "^5.1.0"
   },

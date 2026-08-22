@@ -3,7 +3,7 @@
 [![NPM Version](https://img.shields.io/npm/v/remark-obsidian-md?color=blue&style=flat-square)](https://www.npmjs.com/package/remark-obsidian-md)
 [![License](https://img.shields.io/npm/l/remark-obsidian-md?color=green&style=flat-square)](LICENSE)
 
-**[remark](https://github.com/remarkjs/remark)** plugin to support **[Obsidian.md](https://obsidian.md)** syntax (wiki links, callouts, highlights).
+**[remark](https://github.com/remarkjs/remark)** plugin to support **[Obsidian.md](https://obsidian.md)** syntax (wiki links, highlights).
 
 ## Contents
 
@@ -12,7 +12,6 @@
 - [Installation](#installation)
 - [Features](#features)
   - [Wiki Links](#wiki-links)
-  - [Callouts](#callouts)
   - [Highlights](#highlights)
 - [Usage](#usage)
   - [Unified / Remark](#unified--remark)
@@ -28,7 +27,7 @@
 
 This is a [remark](https://github.com/remarkjs/remark) plugin that transforms **Obsidian-specific markdown syntax** into standard compatible Markdown (MDAST) or HTML. It bridges the gap between your personal knowledge base and your web publisher.
 
-It handles features unique to Obsidian, like **Wiki Links** (`[[Note]]`), **Embeds** (`![[Note]]`), **Callouts** (`> [!info]`), and **Highlights** (`==text==`), resolving them correctly against your file system so they work in static site generators like Next.js, Gatsby, or Astro.
+It handles features unique to Obsidian, like **Wiki Links** (`[[Note]]`), **Embeds** (`![[Note]]`), and **Highlights** (`==text==`), resolving them correctly against your file system so they work in static site generators like Next.js, Gatsby, or Astro.
 
 ## When should I use this?
 
@@ -36,7 +35,7 @@ Use this plugin if:
 
 - You use **Obsidian.md** to write content and want to publish it to the web (e.g., a Digital Garden or Blog).
 - You want to preserve Obsidian's internal linking graph (`[[Link]]`) without manually converting links to standard markdown (`[Link](./path/to/file.md)`).
-- You use **Next.js**, **Fumadocs**, or **Contentlayer** and want to support Obsidian callouts and highlights out of the box.
+- You use **Next.js**, **Fumadocs**, or **Contentlayer** and want to support Obsidian highlights out of the box.
 
 ## Installation
 
@@ -63,32 +62,9 @@ You can display custom text for a link using the pipe `|` separator.
 
 - `[[My File|Click Here]]` → Renders a link pointing to `My File` but displaying "Click Here".
 
-#### Images & Resizing
-
-Images support standard embedding and Obsidian's resizing syntax.
-
-- `[[image.png]]` → Link to open just the image.
-- `![[image.png]]` → Renders the image in the page.
-- `[[image.png|300]]` → Renders the image with `width="300"`.
-
 #### Note Embedding
 
 Using `![[My Note]]` will embed the content of that note directly into the current page.
-
-### Callouts
-
-Supports standard Obsidian callouts (e.g., `> [!info] Title`).
-
-- **Icons:** automatically applies Lucide icons matching the default Obsidian callouts types (info, tip, warning, etc.).
-- **Customization:** You can overwrite icons or add new types via the `callouts` option.
-- **Rendering:** By default, renders as HTML `div` blocks with `data-callout` attributes. You can opt-in to render as a MDX component `<Callout>` instead (see [`Options`](#options)).
-
-#### Collapsable
-
-Supports the fold syntax:
-
-- `> [!info]+` (Open by default)
-- `> [!info]-` (Collapsed by default)
 
 ### Highlights
 
@@ -96,7 +72,32 @@ Text wrapped in double equals `==highlighted text==` is transformed into an HTML
 
 ### Frontmatter
 
-Creates an component that mimics the way Obsidian.md displays frontmatter (YAML) properties.
+Instead of rendering a built-in frontmatter component, the plugin exposes a
+pure helper, `getFrontmatter`, that resolves a parsed frontmatter object (e.g.
+the one fumadocs already provides) into a plain object you can render yourself.
+
+Wiki links (`[[Note]]`) and URLs inside string values are resolved to
+`{ url, label }` objects. The `url` is always **root-relative** (starts with
+`/`), so it can be passed straight through fumadocs'
+`createRelativeLink` (or rendered with any `<Link>` component). Unresolved wiki
+links degrade gracefully to their label text. All other value types (boolean,
+number, array, plain string) are returned unchanged.
+
+```ts
+import { getFrontmatter } from "remark-obsidian-md";
+
+const frontmatter = getFrontmatter(page.data.frontmatter, {
+  contentMap, // the same Map you pass to the plugin
+  urlPrefix: "/docs", // optional
+  ignoredKeys: ["secret"], // optional
+});
+
+// frontmatter.related === { url: "/docs/my-note", label: "My Note" }
+```
+
+This keeps link resolution in one place: render the returned object with your
+own component (matching the way Obsidian.md displays properties), without
+duplicating the plugin's slugify / content-map logic.
 
 ## Usage
 
@@ -162,148 +163,18 @@ export default defineConfig({
 | `urlPrefix`           | `string`                   | `undefined`  | A string to prepend to all generated URLs (e.g., `"/docs"`).                                       |
 | `enableWikiLinks`     | `boolean`                  | `true`       | Enable parsing of `[[Wiki Links]]`.                                                                |
 | `enableEmbeds`        | `boolean`                  | `true`       | Enable parsing of `![[Embeds]]`.                                                                   |
-| `enableCallouts`      | `boolean`                  | `true`       | Enable parsing of `> [!type]` blocks.                                                              |
 | `enableHighlights`    | `boolean`                  | `true`       | Enable parsing of `==highlight==`.                                                                 |
-| `enableFrontmatter`   | `boolean`                  | `true`       | Enable custom frontmatter (YAML) component.                                                        |
-| `useMdxCallout`       | `boolean`                  | `false`      | If `true`, renders a `<Callout>` component instead of HTML `div`s. Useful for MDX.                 |
-| `calloutCollapseIcon` | `string`                   | -            | Custom SVG for the Callout collapse icon.                                                          |
 | `slugify`             | `(text: string) => string` | -            | Custom function to convert file names to URLs.                                                     |
-| `callouts`            | `Record<string, string>`   | -            | Map of callout types to SVG icon strings. Use this to add custom icons.                            |
-| `customProps`         | `object`                   | -            | Inject custom HTML attributes/classes into generated nodes (wikiLinks, callouts, highlights, etc). |
+| `customProps`         | `object`                   | -            | Inject custom HTML attributes/classes into generated nodes (wikiLinks, highlights).                |
 | `contentMap`          | `Map<string, Metadata>`    | -            | **Advanced:** Manually provide the map of files instead of scanning `root`.                        |
 
 ## Examples
 
-### Custom Callout Icons
-
-You can register your own callout types or overwrite existing ones by passing SVG strings.
-
-```ts
-use(remarkObsidianMd, {
-  callouts: {
-    "my-custom-type": "<svg>...</svg>", // Usage: `> [!my-custom-type] Title`
-    note: "<svg>...</svg>", // Overwrites the default 'note' icon
-  },
-});
-```
-
 ### Custom Styling
 
-You can import the default CSS styles included in the package:
-
-```ts
-import "remark-obsidian-md/styles/callouts.css";
-import "remark-obsidian-md/styles/callouts-colors.css";
-import "remark-obsidian-md/styles/frontmatter.css";
-
-// if that doesn't work, try to import directly from the node modules
-import "../../node_modules/styles/callouts.css";
-import "../../node_modules/styles/callouts-colors.css";
-import "../../node_modules/styles/frontmatter.css";
-```
-
-Or manually style the elements. The plugin produces the following HTML structure:
-
-- **Normal Callouts:**
-
-```html
-<div class="callout" data-callout="type">
-  <div class="callout-title">
-    <div class="callout-icon">
-      <svg><!-- ... --></svg>
-    </div>
-
-    Callout Title
-  </div>
-
-  <p>Callout content</p>
-</div>
-```
-
-- **Collapsable Callouts:**
-
-```html
-<details class="callout" data-callout="type" open>
-  <summary class="callout-title">
-    <div class="callout-icon">
-      <svg><!-- ... --></svg>
-    </div>
-
-    Callout Title
-
-    <div class="callout-collapse-icon">
-      <svg><!-- ... --></svg>
-    </div>
-  </summary>
-
-  <p>Callout content</p>
-</details>
-```
-
-- **Frontmatter:**
-
-```html
-<details class="frontmatter" open>
-  <summary class="frontmatter-title">
-    <div class="frontmatter-collapse-icon">
-      <svg><!-- ... --></svg>
-    </div>
-
-    Properties
-  </summary>
-
-  <ul class="frontmatter-properties">
-    <!-- String | Number | Date | Time -->
-    <li class="frontmatter-property">
-      <div class="frontmatter-icon">
-        <svg><!-- ... --></svg>
-      </div>
-
-      <div class="frontmatter-property-key">Key name</div>
-
-      <div class="frontmatter-property-value" data-type="string">Value</div>
-    </li>
-
-    <!-- Boolean -->
-    <li class="frontmatter-property">
-      <div class="frontmatter-icon">
-        <svg><!-- ... --></svg>
-      </div>
-
-      <div class="frontmatter-property-key">Key name</div>
-
-      <div class="frontmatter-property-value" data-type="boolean">
-        <input type="checkbox" disabled checked />
-      </div>
-    </li>
-
-    <!-- List -->
-    <li class="frontmatter-property">
-      <div class="frontmatter-icon">
-        <svg><!-- ... --></svg>
-      </div>
-
-      <div class="frontmatter-property-key">Key name</div>
-      <div class="frontmatter-property-value" data-type="list">
-        <ul>
-          <li>String value</li>
-          <li><a href="...">Links</a></li>
-        </ul>
-      </div>
-    </li>
-  </ul>
-</details>
-```
-
-#### Custom Callout Colors
-
-If you want to customize the callouts colors, you can easily do so by adding the following CSS styles:
-
-```css
-[data-callout="note"] {
-  --callout-color: 2, 122, 255; /* rgb */
-}
-```
+The plugin produces standard HTML elements you can style freely. Wiki links
+render as `<a>` elements, highlights as `<mark>`, and embeds as `<include>`
+elements resolved against your file system.
 
 ## Types
 
@@ -312,9 +183,28 @@ It exports the additional type [`Options`](#nextjs--fumadocs).
 
 The node types are supported in [`@types/mdast`](https://www.npmjs.com/package/@types/mdast) by default.
 
-## Credits
+## Migrating to 2.0.0
 
-- [Lucide](https://lucide.dev/): default callouts icons.
+Version 2.0.0 is a breaking release:
+
+- **Images removed.** Image handling (`![[image.png]]`, image links, dimensions)
+  is no longer provided — image embedding is handled by fumadocs / your MDX
+  pipeline. The `image-size` dependency and the `publicFolder` option were
+  removed. `ContentMetadata` is now markdown-only (`type: "md"`).
+- **Built-in frontmatter component removed.** The `enableFrontmatter` option and
+  the injected `<details>` frontmatter component are gone. Use the new
+  `getFrontmatter(frontmatter, { contentMap })` helper to obtain a resolved
+  frontmatter object and render it with your own component.
+- **Callouts removed.** Callout rendering (`> [!type]`) is now handled natively
+  by Fumadocs. The `callouts` / `calloutCollapseIcon` / `useMdxCallout` /
+  `enableCallouts` options and the `customProps.callouts` block were removed,
+  along with the bundled `styles/callouts.css` and `styles/callouts-colors.css`.
+- **Removed options / `customProps`:** `enableFrontmatter`,
+  `ignoredFrontmatterKeys`, `customProps.frontmatter`, `customProps.imageLinks`,
+  `customProps.imageEmbeds`, `enableCallouts`, `useMdxCallout`,
+  `calloutCollapseIcon`, `callouts`, and `customProps.callouts`.
+
+## Credits
 
 ## License
 

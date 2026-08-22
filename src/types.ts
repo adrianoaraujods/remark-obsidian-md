@@ -1,10 +1,6 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: HTML element properties could be of any type */
 
-import type { Node, RootContent } from "mdast";
-
-import type { DefaultCallout } from "./callouts.js";
 import { type ContentMetadata, getContentMap } from "./content-map.js";
-import { SVG_ARROW_RIGHT } from "./icons.js";
 import { slugify } from "./utils.js";
 
 export type Options = {
@@ -15,12 +11,6 @@ export type Options = {
   root?: string;
 
   /**
-   * The directory path where the obsidian vault is located.
-   * @default "./public"
-   */
-  publicFolder?: string;
-
-  /**
    * A function that converts a string into a URL-friendly slug.
    * @param text
    * @returns
@@ -28,10 +18,10 @@ export type Options = {
   slugify?: (text: string) => string;
 
   /**
-   * A Map that contains all the valid markdown and image files inside the vault folder.
+   * A Map that contains all the valid markdown files inside the vault folder.
    *
-   * The keys should be the file name without the extension (except if is a image) in
-   * lowercase (e.g., "my file" or "image.png").
+   * The keys should be the file name without the extension in lowercase
+   * (e.g., "my file").
    *
    * @default Result of {@link getContentMap}
    */
@@ -50,33 +40,10 @@ export type Options = {
   enableEmbeds?: boolean;
 
   /**
-   * If you want to support callouts (e.g., `> [!info] title`).
-   * @default true
-   */
-  enableCallouts?: boolean;
-
-  /**
    * If you want to support highlights (e.g., `==text==`).
    * @default true
    */
   enableHighlights?: boolean;
-
-  /**
-   * If you want to render the custom frontmatter (YAML) component.
-   * @default true
-   */
-  enableFrontmatter?: boolean;
-
-  /**
-   * Custom SVG to replace the callout collapse icon
-   */
-  calloutCollapseIcon?: string;
-
-  /**
-   * If you want to render callouts using MDX component `<Callout>` instead of HTML elements.
-   * @default false
-   */
-  useMdxCallout?: boolean;
 
   /**
    * A prefix that will be prepended in the slugified URLs.
@@ -84,88 +51,21 @@ export type Options = {
   urlPrefix?: string;
 
   /**
-   * If you want to hide some frontmatter properties inside the custom component.
-   */
-  ignoredFrontmatterKeys?: string[];
-
-  /**
    * Custom HTML properties for each type of node.
    */
   customProps?: {
     wikiLinks?: Record<string, any>;
     notFoundWikiLinks?: Record<string, any>;
-    imageLinks?: Record<string, any>;
-    imageEmbeds?: Record<string, any>;
     highlights?: Record<string, any>;
-    callouts?: {
-      container?: Record<string, any>;
-      icon?: Record<string, any>;
-      title?: Record<string, any>;
-      collapse?: Record<string, any>;
-    };
-    frontmatter?: {
-      container?: Record<string, any>;
-      title?: Record<string, any> & {
-        /**
-         * This will be used as the text inside the element
-         */
-        children?: string;
-      };
-      icon?: Record<string, any> & {
-        /**
-         * This will be used in the place of the SVG inside the element
-         */
-        children?: string;
-      };
-      collapse?: Record<string, any> & {
-        /**
-         * This will be used in the place of the SVG inside the element
-         */
-        children?: string;
-      };
-      properties?: Record<string, any>;
-      property?: Record<string, any>;
-      key?: Record<string, any>;
-      value?: Record<string, any>;
-    };
   };
-
-  /**
-   * Declare custom Callout icons or overwrite the defaults.
-   */
-  callouts?: {
-    [K in DefaultCallout]?: string;
-  } & { [key: string]: string };
 };
 
 export const DEFAULT_OPTIONS = {
   enableWikiLinks: true,
   enableEmbeds: true,
-  enableCallouts: true,
   enableHighlights: true,
-  enableFrontmatter: true,
-  useMdxCallout: false,
-  ignoredFrontmatterKeys: [],
-  calloutCollapseIcon: SVG_ARROW_RIGHT,
   root: "./public",
-  publicFolder: "./public",
   slugify,
   customProps: {},
   urlPrefix: "",
 } satisfies Options;
-
-export interface Element extends Node {
-  type: "element";
-  name: string;
-  data: Record<string, any> & {
-    hName: string;
-    hProperties: Record<string, any> & { className?: string };
-  };
-  children: RootContent[];
-}
-
-declare module "mdast" {
-  interface RootContentMap {
-    element: Element;
-  }
-}
