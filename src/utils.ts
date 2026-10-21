@@ -1,5 +1,4 @@
 export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/;
-export const HIGHLIGHT_REGEX = /==(.*?)==/;
 
 /**
  * Splits the inner text of a Wiki Link into its Link Target, Alias and
