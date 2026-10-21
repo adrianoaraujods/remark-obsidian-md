@@ -107,7 +107,7 @@ export const footnoteFromMarkdown: FromMarkdownExtension = {
   },
 };
 
-export function configureFootnotes(processor: Processor): Transformer<Root> {
+export function configureFootnotes(processor: Processor): (tree: Root) => void {
   addExtension(processor, "micromarkExtensions", footnoteSyntax);
   addExtension(processor, "fromMarkdownExtensions", footnoteFromMarkdown);
 

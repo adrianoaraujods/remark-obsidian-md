@@ -1,10 +1,19 @@
+import GithubSlugger from "github-slugger";
+
 export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/;
+
+export type ParsedWikiLink = {
+  target: string;
+  alias: string | undefined;
+  subpaths: string[];
+  rawTarget: string;
+};
 
 /**
  * Splits the inner text of a Wiki Link into its Link Target, Alias and
- * Subpath.
+ * Subpaths. A `\|` is accepted as the alias separator (tables escape pipes).
  */
-export function parseWikiLink(content: string) {
+export function parseWikiLink(content: string): ParsedWikiLink | null {
   const pipeIndex = content.indexOf("|");
 
   let rawTarget: string;
@@ -13,19 +22,46 @@ export function parseWikiLink(content: string) {
   if (pipeIndex === -1) {
     rawTarget = content;
   } else {
-    rawTarget = content.slice(0, pipeIndex);
-    alias = content.slice(pipeIndex + 1).trim();
+    rawTarget = content.slice(0, pipeIndex).replace(/\\$/, "");
+    alias = content
+      .slice(pipeIndex + 1)
+      .replace(/\\\|/g, "|")
+      .trim();
   }
 
   // Clean up whitespace and normalize slashes
   rawTarget = rawTarget.replace(/\\/g, "/").trim();
-  if (!rawTarget) return null;
 
-  let [target, anchor] = rawTarget.split("#");
-  target = target ? target.trim() : "";
-  anchor = anchor ? anchor.trim().toLowerCase() : undefined;
+  const [target = "", ...subpaths] = rawTarget.split("#");
+  const cleanTarget = target.trim();
+  const cleanSubpaths = subpaths.map((part) => part.trim()).filter(Boolean);
+  if (!cleanTarget && cleanSubpaths.length === 0) return null;
 
-  return { target, alias, anchor, rawTarget };
+  return {
+    target: cleanTarget,
+    alias,
+    subpaths: cleanSubpaths,
+    rawTarget,
+  };
+}
+
+/** GitHub-style heading slug, the default anchor slugger. */
+export function githubSlugger(text: string): string {
+  return new GithubSlugger().slug(text);
+}
+
+/**
+ * Turns Subpaths into a URL fragment. A nested chain links to its innermost
+ * heading, which is the heading that actually carries the anchor. Block
+ * References (`#^id`) keep their marker verbatim.
+ */
+export function anchorFor(
+  subpaths: string[],
+  slugger: (text: string) => string,
+): string | undefined {
+  const last = subpaths.at(-1);
+  if (!last) return undefined;
+  return last.startsWith("^") ? last : slugger(last);
 }
 
 /**
@@ -67,7 +103,7 @@ export function slugify(text: string): string {
  *   leading slash).
  * @param options.slugify - Slugify function used per path segment.
  * @param options.urlPrefix - Optional prefix prepended to the URL (e.g. "/docs").
- * @param options.anchor - Optional heading anchor (already lowercased).
+ * @param options.anchor - Optional, already slugged heading anchor.
  * @returns A URL starting with `/`, e.g. `/docs/folder/note#some-heading`.
  */
 export function slugifyUrl(
@@ -88,9 +124,7 @@ export function slugifyUrl(
   const trimmedPrefix = options.urlPrefix?.replace(/^\/+|\/+$/g, "");
   const prefixPart = trimmedPrefix ? `${trimmedPrefix}/` : "";
 
-  const anchorPart = options.anchor
-    ? `#${options.slugify(options.anchor)}`
-    : "";
+  const anchorPart = options.anchor ? `#${options.anchor}` : "";
 
   return `/${prefixPart}${slug}${anchorPart}`;
 }

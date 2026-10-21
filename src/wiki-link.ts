@@ -14,6 +14,8 @@ import type {
 } from "micromark-util-types";
 import type { Processor, Transformer } from "unified";
 import { visit } from "unist-util-visit";
+
+import { scanBlockIds } from "./block-id.js";
 import { addExtension } from "./extensions.js";
 import { mapResolver } from "./resolver.js";
 import type {
@@ -21,7 +23,14 @@ import type {
   WikiLinkNode,
   WikiLinksPluginOptions,
 } from "./types.js";
-import { parseWikiLink, slugify, slugifyUrl } from "./utils.js";
+import {
+  anchorFor,
+  githubSlugger,
+  type ParsedWikiLink,
+  parseWikiLink,
+  slugify,
+  slugifyUrl,
+} from "./utils.js";
 
 /**
  * Micromark inline token for `[[…]]`. It fires in every phrasing context and
@@ -92,43 +101,107 @@ export const wikiLinkFromMarkdown: FromMarkdownExtension = {
 };
 
 export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
+  literalizeLinkText(tree);
+
   visit(tree, "wikiLink", (node, index, parent) => {
     if (index === undefined || !parent) return;
 
     const parsed = parseWikiLink(node.value);
-
-    // Aliases, Subpaths and Embeds belong to later tickets: keep the source
-    // literal until a transform understands them.
-    if (!parsed || parsed.alias || parsed.anchor) {
-      parent.children[index] = { type: "text", value: `[[${node.value}]]` };
+    if (!parsed) {
+      parent.children[index] = literal(node);
       return;
     }
 
-    const label = parsed.rawTarget;
+    const label = aliasOrTarget(parsed);
+    const anchor = anchorFor(parsed.subpaths, context.slugger);
+
+    // A same-Note Subpath (`[[#Heading]]`) only ever needs the fragment.
+    if (!parsed.target) {
+      parent.children[index] = anchor
+        ? blockReferenceResolves(anchor, context)
+          ? {
+              type: "link",
+              url: `#${anchor}`,
+              children: [{ type: "text", value: label }],
+            }
+          : unresolved(label, context)
+        : literal(node);
+      return;
+    }
+
     const resolved = context.resolver.resolve(parsed.target);
 
-    if (resolved.exists && resolved.kind === "note") {
+    if (
+      resolved.exists &&
+      resolved.kind === "note" &&
+      blockReferenceResolves(anchor, context, resolved.path)
+    ) {
       parent.children[index] = {
         type: "link",
         url: slugifyUrl(resolved.path, {
           slugify: context.slugify,
           urlPrefix: context.urlPrefix,
+          ...(anchor ? { anchor } : {}),
         }),
         children: [{ type: "text", value: label }],
       };
       return;
     }
 
-    parent.children[index] =
-      context.unresolvedStrategy === "plain"
-        ? { type: "text", value: label }
-        : {
-            type: "link",
-            url: "#",
-            children: [{ type: "text", value: label }],
-            data: { hProperties: { className: "is-unresolved" } },
-          };
+    parent.children[index] = unresolved(label, context);
   });
+}
+
+/**
+ * A Block Reference only resolves when its target Block can be found: in the
+ * current Note's index, or in another Note's markdown. Without an index or a
+ * reader there is nothing to check against, so the link is kept.
+ */
+function blockReferenceResolves(
+  anchor: string | undefined,
+  context: WikiLinkContext,
+  notePath?: string,
+): boolean {
+  if (!anchor?.startsWith("^") || !context.blockIds) return true;
+
+  const id = anchor.slice(1);
+  if (notePath === undefined) return context.blockIds.current.has(id);
+
+  const body = context.blockIds.readNote?.(notePath);
+  return body === undefined || scanBlockIds(body).has(id);
+}
+
+function unresolved(label: string, context: WikiLinkContext) {
+  return context.unresolvedStrategy === "plain"
+    ? { type: "text" as const, value: label }
+    : {
+        type: "link" as const,
+        url: "#",
+        children: [{ type: "text" as const, value: label }],
+        data: { hProperties: { className: "is-unresolved" } },
+      };
+}
+
+/**
+ * A Wiki Link inside standard link text renders literally, so the output never
+ * nests one anchor inside another.
+ */
+function literalizeLinkText(tree: Root): void {
+  visit(tree, ["link", "linkReference"], (link) => {
+    visit(link, "wikiLink", (node, index, parent) => {
+      if (index !== undefined && parent) parent.children[index] = literal(node);
+    });
+  });
+}
+
+function aliasOrTarget(parsed: ParsedWikiLink) {
+  return (
+    parsed.alias || parsed.target || parsed.subpaths.at(-1) || parsed.rawTarget
+  );
+}
+
+function literal(node: WikiLinkNode) {
+  return { type: "text" as const, value: `[[${node.value}]]` };
 }
 
 export function configureWikiLinks(
@@ -140,6 +213,7 @@ export function configureWikiLinks(
 
   return {
     resolver: options.resolver ?? mapResolver({}),
+    slugger: options.slugger ?? githubSlugger,
     slugify: options.slugify ?? slugify,
     urlPrefix: options.urlPrefix ?? "",
     unresolvedStrategy: options.unresolvedStrategy ?? "link",

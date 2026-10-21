@@ -124,20 +124,25 @@ export const highlightFromMarkdown: FromMarkdownExtension = {
 const COLOR_EMOJI =
   /^(?:🔴|🟠|🟡|🟢|🔵|🟣|🟤|⚫|⚪|🟥|🟧|🟨|🟩|🟦|🟪|🟫|⬛|⬜)/u;
 
-export function configureHighlights(processor: Processor): Transformer<Root> {
+export function configureHighlights(
+  processor: Processor,
+): (tree: Root) => void {
   addExtension(processor, "micromarkExtensions", highlightSyntax);
   addExtension(processor, "fromMarkdownExtensions", highlightFromMarkdown);
 
-  return (tree) => {
-    visit(tree, "obsidianHighlight", (node, index, parent) => {
-      if (index === undefined || !parent) return;
+  return transformHighlights;
+}
 
-      const inner = node.value.slice(2, -2);
-      parent.children[index] = COLOR_EMOJI.test(inner)
-        ? { type: "text", value: node.value }
-        : { type: "text", value: inner, data: { hName: "mark" } };
-    });
-  };
+/** Rewrites `obsidianHighlight` nodes to text carrying `hName: "mark"`. */
+export function transformHighlights(tree: Root): void {
+  visit(tree, "obsidianHighlight", (node, index, parent) => {
+    if (index === undefined || !parent) return;
+
+    const inner = node.value.slice(2, -2);
+    parent.children[index] = COLOR_EMOJI.test(inner)
+      ? { type: "text", value: node.value }
+      : { type: "text", value: inner, data: { hName: "mark" } };
+  });
 }
 
 export function remarkObsidianHighlights(this: Processor): Transformer<Root> {

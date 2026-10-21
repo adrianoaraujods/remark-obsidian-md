@@ -14,7 +14,7 @@ import type {
   TokenizeContext,
 } from "micromark-util-types";
 import type { Processor, Transformer } from "unified";
-import { visit } from "unist-util-visit";
+import { SKIP, visit } from "unist-util-visit";
 
 import { addExtension } from "./extensions.js";
 
@@ -146,13 +146,12 @@ function isClosed(raw: string): boolean {
 
 type Range = { start: number; end: number };
 
-export function configureComments(processor: Processor): Transformer<Root> {
+export function configureComments(processor: Processor): (tree: Root) => void {
   addExtension(processor, "micromarkExtensions", commentSyntax);
   addExtension(processor, "fromMarkdownExtensions", commentFromMarkdown);
 
   return (tree) => {
-    removeBlockComments(tree);
-    removeComments(tree);
+    processComments(tree);
   };
 }
 
@@ -161,29 +160,65 @@ export function remarkObsidianComments(this: Processor): Transformer<Root> {
 }
 
 /**
+ * Comments are processed per document scope: the Note itself, and separately
+ * every Embed's transcluded content, whose positions come from another
+ * document and must not be mixed with the outer offsets.
+ */
+function processComments(parent: Parent): void {
+  removeBlockComments(parent);
+  removeComments(parent);
+
+  for (const embed of collectEmbeds(parent)) {
+    processComments(embed);
+  }
+}
+
+function collectEmbeds(parent: Parent): Parent[] {
+  const embeds: Parent[] = [];
+
+  for (const child of parent.children) {
+    if (child.type === "embed") {
+      embeds.push(child);
+    } else if ("children" in child) {
+      embeds.push(...collectEmbeds(child));
+    }
+  }
+
+  return embeds;
+}
+
+/**
  * A line-start `%%…%%` block, including blank lines and markdown, is removed
  * whole. The closing delimiter is the next literal `%%` after the opener; a
  * block with no closer runs to the end of the Note.
  */
-function removeBlockComments(tree: Root): void {
-  const ranges = blockCommentRanges(tree);
-  if (ranges.length > 0) removeRanges(tree, ranges);
+function removeBlockComments(parent: Parent): void {
+  const ranges = blockCommentRanges(parent);
+  if (ranges.length > 0) removeRanges(parent, ranges);
 }
 
 type RawNode = { start: number; column: number; value: string };
 
-function blockCommentRanges(tree: Root): Range[] {
+function blockCommentRanges(parent: Parent): Range[] {
   const raw: RawNode[] = [];
-  visit(tree, (node) => {
+  let documentEnd = 0;
+
+  visit(parent, (node) => {
+    if (node.type === "embed") return SKIP;
     if (node.type !== "text" && node.type !== "obsidianComment") return;
     const start = node.position?.start.offset;
     const column = node.position?.start.column;
-    if (start == null || column == null) return;
-    raw.push({ start, column, value: node.value });
+    const end = node.position?.end.offset;
+    if (start == null || column == null || end == null) return;
+    documentEnd = Math.max(documentEnd, end);
+    raw.push({
+      start,
+      column,
+      value: (node as Text | ObsidianCommentNode).value,
+    });
   });
 
   const ranges: Range[] = [];
-  const documentEnd = tree.position?.end.offset ?? Number.MAX_SAFE_INTEGER;
 
   for (let index = 0; index < raw.length; index++) {
     const opener = raw[index];
@@ -222,7 +257,17 @@ function removeRanges(parent: Parent, ranges: Range[]): void {
     const range = ranges.find((r) => start < r.end && end > r.start);
     if (!range) continue;
 
-    if (start >= range.start && end <= range.end) {
+    const inside = start >= range.start && end <= range.end;
+
+    // An Embed's own position belongs to the outer document, so it can be
+    // removed by an outer range — but its children never are: they carry the
+    // embedded Note's offsets and are processed as their own scope.
+    if (child.type === "embed") {
+      if (inside) parent.children.splice(index, 1);
+      continue;
+    }
+
+    if (inside) {
       parent.children.splice(index, 1);
       continue;
     }
@@ -273,6 +318,8 @@ function removeComments(parent: Parent): boolean {
       index--;
       continue;
     }
+
+    if (child.type === "embed") continue;
 
     if ("children" in child && removeComments(child)) {
       parent.children.splice(child.children.length === 0 ? index : index + 1);
