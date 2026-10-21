@@ -1,6 +1,10 @@
-import type { ContentMetadata } from "./content-map.js";
-import { slugify, slugifyUrl, WIKI_LINK_REGEX } from "./utils.js";
-import { parseWikiLink } from "./wiki-links.js";
+import type { Resolver } from "./types.js";
+import {
+  parseWikiLink,
+  slugify,
+  slugifyUrl,
+  WIKI_LINK_REGEX,
+} from "./utils.js";
 
 export type FrontmatterLink = {
   url: string;
@@ -8,7 +12,7 @@ export type FrontmatterLink = {
 };
 
 export type GetFrontmatterOptions = {
-  contentMap: Map<string, ContentMetadata>;
+  resolver: Resolver;
   slugify?: (text: string) => string;
   urlPrefix?: string;
   ignoredKeys?: string[];
@@ -17,15 +21,14 @@ export type GetFrontmatterOptions = {
 /**
  * Resolves the values of a parsed frontmatter object so they can be rendered
  * directly by a consumer (e.g. fumadocs). Wiki links (`[[Note]]`) and URLs
- * inside string values are resolved to `{ url, label }` objects that fumadocs'
- * `createRelativeLink` can route (it expects root-relative URLs starting with
- * `/`). Unresolved wiki links degrade gracefully to their label text.
+ * inside string values are resolved to `{ url, label }` objects. Unresolved
+ * wiki links degrade gracefully to their label text.
  *
  * A string value is resolved to a `{ url, label }` link **only when the whole
  * value is a single wiki link or URL** (e.g. `"[[Note]]"`,
  * `"[[Note|Alias]]"`, `"https://example.com"`). Strings that merely *contain*
  * a link alongside other text are returned unchanged, so no surrounding text
- * or extra links are silently dropped. Every other value type (boolean,
+ * or extra links is silently dropped. Every other value type (boolean,
  * number, array, plain string) is returned unchanged.
  */
 export function getFrontmatter(
@@ -57,7 +60,7 @@ function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
 
   // Only resolve when the whole value is a single link or URL. Mixed strings
   // (e.g. "See [[Note]] now" or "[[A]] and [[B]]") are returned unchanged so no
-  // surrounding text or extra links are silently discarded. The wiki-link
+  // surrounding text or extra links is silently discarded. The wiki-link
   // branch forbids `]` inside the brackets so a string with several `[[...]]`
   // is not mistaken for one link.
   const isWholeLink = /^(?:!?\[\[[^\]]*\]\]|https?:\/\/\S+)$/.test(trimmed);
@@ -68,8 +71,8 @@ function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
     return { url: trimmed, label: trimmed } satisfies FrontmatterLink;
   }
 
-  // `trimmed` is a whole wiki link, so extract the inner content (between the
-  // brackets) before parsing — parseWikiLink expects the text without `[[ ]]`.
+  // `trimmed` is a whole wiki link, so extract the inner content before
+  // parsing — parseWikiLink expects the text without `[[ ]]`.
   const innerMatch = trimmed.match(WIKI_LINK_REGEX);
   const linkText = innerMatch ? (innerMatch[2] ?? trimmed) : trimmed;
   const parsed = parseWikiLink(linkText);
@@ -78,10 +81,10 @@ function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
   const { alias, anchor, target } = parsed;
   const label = alias || target;
 
-  const metadata = options.contentMap.get(target.toLowerCase());
-  if (!metadata) return label;
+  const resolved = options.resolver.resolve(target);
+  if (!resolved.exists || resolved.kind !== "note") return label;
 
-  const resolvedUrl = slugifyUrl(metadata.path, {
+  const resolvedUrl = slugifyUrl(resolved.path, {
     slugify: slugifyFn,
     ...(options.urlPrefix ? { urlPrefix: options.urlPrefix } : {}),
     ...(anchor ? { anchor } : {}),
