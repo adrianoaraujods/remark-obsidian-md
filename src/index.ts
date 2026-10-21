@@ -1,13 +1,15 @@
 import type { Root } from "mdast";
 import type { Processor, Transformer } from "unified";
 
+import { configureEmbeds, transformEmbeds } from "./embed.js";
 import { processHighlights } from "./highlights.js";
 import type { RemarkObsidianMdOptions } from "./types.js";
 import { configureWikiLinks, transformWikiLinks } from "./wiki-link.js";
 
 /**
- * Composed plugin for the common case: resolves Wiki Links and renders
- * Highlights. Per-feature plugins can be composed by hand instead.
+ * Composed plugin for the common case: resolves Wiki Links, transcludes
+ * Embeds and renders Highlights. Per-feature plugins can be composed by hand
+ * instead.
  */
 export function remarkObsidianMd(
   this: Processor,
@@ -20,7 +22,14 @@ export function remarkObsidianMd(
     unresolvedStrategy: options.wikiLinks?.unresolvedStrategy,
   });
 
+  const embeds = configureEmbeds(this, {
+    readNote: options.embeds?.readNote,
+    maxDepth: options.embeds?.maxDepth,
+    wikiLinks,
+  });
+
   return (tree) => {
+    transformEmbeds(tree, embeds);
     transformWikiLinks(tree, wikiLinks);
     processHighlights(tree);
   };
@@ -28,6 +37,7 @@ export function remarkObsidianMd(
 
 export default remarkObsidianMd;
 
+export { remarkObsidianEmbeds } from "./embed.js";
 export type {
   FrontmatterLink,
   GetFrontmatterOptions,
@@ -35,6 +45,8 @@ export type {
 export { getFrontmatter } from "./frontmatter.js";
 export { type MapResolverEntry, mapResolver } from "./resolver.js";
 export type {
+  EmbedsOptions,
+  EmbedsPluginOptions,
   NoteMetadata,
   RemarkObsidianMdOptions,
   ResolvedTarget,
