@@ -36,6 +36,7 @@ export type RemarkObsidianMdOptions = {
   urlPrefix?: string | undefined;
   wikiLinks?: WikiLinksOptions | undefined;
   embeds?: EmbedsOptions | undefined;
+  callouts?: CalloutsPluginOptions | undefined;
 };
 
 export type WikiLinksPluginOptions = {
@@ -56,6 +57,16 @@ export type WikiLinkContext = {
   unresolvedStrategy: UnresolvedStrategy;
 };
 
+export type CalloutTypeDefinition = {
+  icon?: string;
+  color?: string;
+  title?: string;
+};
+
+export type CalloutsPluginOptions = {
+  types?: Record<string, CalloutTypeDefinition>;
+};
+
 /** Intermediate node produced by the Wiki Link tokenizer. */
 export interface WikiLinkNode extends Literal {
   type: "wikiLink";
@@ -70,6 +81,20 @@ export interface EmbedNode extends Parent {
   value?: string;
 }
 
+/**
+ * A Callout. Unlike `embed`, its wrapper structure has no native MDAST
+ * equivalent, so title/content wrappers use the internal `calloutPart` node.
+ */
+export interface CalloutNode extends Parent {
+  type: "callout";
+  children: CalloutPartNode[];
+}
+
+/** One rendered wrapper inside a Callout (`callout-title`, `callout-content`…). */
+export interface CalloutPartNode extends Parent {
+  type: "calloutPart";
+}
+
 declare module "mdast" {
   interface PhrasingContentMap {
     wikiLink: WikiLinkNode;
@@ -79,6 +104,8 @@ declare module "mdast" {
   interface RootContentMap {
     wikiLink: WikiLinkNode;
     embed: EmbedNode;
+    callout: CalloutNode;
+    calloutPart: CalloutPartNode;
   }
 }
 

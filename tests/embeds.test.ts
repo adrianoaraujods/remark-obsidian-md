@@ -177,8 +177,7 @@ describe("remarkObsidianEmbeds", () => {
 
     expect(json).toContain('"url":"/link"');
     expect(json).toContain('"hName":"mark"');
-    // The Callout transform runs after Embeds and consumes this blockquote.
-    expect(json).toMatch(/"type":"(blockquote|callout)"/);
+    expect(json).toContain('"type":"callout"');
     expect(json).toContain("Callout body");
   });
 });
