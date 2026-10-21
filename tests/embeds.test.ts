@@ -108,6 +108,24 @@ describe("remarkObsidianEmbeds", () => {
     });
   });
 
+  it("ignores an Alias on a Note Embed and transcludes the Note", () => {
+    const tree = process("![[A|Ignored Alias]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      data: {
+        hName: "div",
+        hProperties: { className: ["internal-embed"] },
+      },
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Alpha content" }],
+        },
+      ],
+    });
+  });
+
   it("promotes a lone Embed to block position as a div", () => {
     const tree = process("![[A]]");
 

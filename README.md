@@ -172,7 +172,7 @@ import {
 
 ### Embeds
 
-- `![[Note]]` transcludes the whole Note; `![[Note#Heading]]` a section; `![[Note#^block-id]]` a single Block.
+- `![[Note]]` transcludes the whole Note; `![[Note#Heading]]` a section; `![[Note#^block-id]]` a single Block. An Alias on a Note Embed is ignored, like Obsidian: `![[Note|Alias]]` embeds the Note.
 - Transcluded content lives in the `embed` node's `children`, so markdown inside it is processed as markdown (embedded wiki links, callouts and highlights work).
 - The Embed container carries the embedded Note's CSS Classes; a lone Embed is promoted to a `div.internal-embed`, a mid-text Embed becomes a `span.internal-embed`.
 - `![[image.png]]` renders an `<img>`, with `![[image.png|300]]` and `|300x200` sizing. `![[clip.mp3]]` / `![[clip.mp4]]` render `<audio>` / `<video>` leaves. PDF embeds fall back to a link carrying the `internal-embed` container class.

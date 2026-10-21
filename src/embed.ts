@@ -174,10 +174,6 @@ function resolveEmbed(
     return assetEmbed(parsed, resolved);
   }
 
-  // Aliases on Notes belong to a later ticket: keep the source literal until
-  // their transform understands them.
-  if (parsed.alias) return literalEmbed(node);
-
   // The target resolved, but the cycle/depth guard stops here: mark the
   // placeholder neutrally so it is not mistaken for an unresolved target.
   if (
