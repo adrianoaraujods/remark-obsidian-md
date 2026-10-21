@@ -1,20 +1,15 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { getContentMap } from "../src/content-map";
 import { getFrontmatter } from "../src/frontmatter";
+import { mapResolver } from "../src/resolver";
 
-const FIXTURES_DIR = "tests/fixtures";
+const resolver = mapResolver({
+  "Wiki Link": { path: "/Wiki Link.md", title: "Wiki Link" },
+});
 
 describe("getFrontmatter", () => {
-  let contentMap: Awaited<ReturnType<typeof getContentMap>>;
-
-  beforeEach(async () => {
-    vi.resetModules();
-    contentMap = await getContentMap(FIXTURES_DIR);
-  });
-
   it("returns an empty object when given an empty frontmatter", () => {
-    expect(getFrontmatter({}, { contentMap })).toEqual({});
+    expect(getFrontmatter({}, { resolver })).toEqual({});
   });
 
   it("returns primitives unchanged", () => {
@@ -26,7 +21,7 @@ describe("getFrontmatter", () => {
           done: true,
           tags: ["a", "b"],
         },
-        { contentMap },
+        { resolver },
       ),
     ).toEqual({
       title: "Hello World",
@@ -37,16 +32,14 @@ describe("getFrontmatter", () => {
   });
 
   it("resolves a standard wiki link to a root-relative url", () => {
-    expect(
-      getFrontmatter({ related: "[[Wiki Link]]" }, { contentMap }),
-    ).toEqual({
+    expect(getFrontmatter({ related: "[[Wiki Link]]" }, { resolver })).toEqual({
       related: { url: "/wiki-link", label: "Wiki Link" },
     });
   });
 
   it("resolves an aliased wiki link using the alias as label", () => {
     expect(
-      getFrontmatter({ related: "[[Wiki Link|Click Here]]" }, { contentMap }),
+      getFrontmatter({ related: "[[Wiki Link|Click Here]]" }, { resolver }),
     ).toEqual({
       related: { url: "/wiki-link", label: "Click Here" },
     });
@@ -54,7 +47,7 @@ describe("getFrontmatter", () => {
 
   it("resolves a wiki link with an anchor", () => {
     expect(
-      getFrontmatter({ related: "[[Wiki Link#Some Heading]]" }, { contentMap }),
+      getFrontmatter({ related: "[[Wiki Link#Some Heading]]" }, { resolver }),
     ).toEqual({
       related: { url: "/wiki-link#some-heading", label: "Wiki Link" },
     });
@@ -62,7 +55,7 @@ describe("getFrontmatter", () => {
 
   it("resolves an url into a link object", () => {
     expect(
-      getFrontmatter({ site: "https://example.com" }, { contentMap }),
+      getFrontmatter({ site: "https://example.com" }, { resolver }),
     ).toEqual({
       site: { url: "https://example.com", label: "https://example.com" },
     });
@@ -70,7 +63,7 @@ describe("getFrontmatter", () => {
 
   it("degrades an unresolved wiki link to its label", () => {
     expect(
-      getFrontmatter({ missing: "[[Does Not Exist]]" }, { contentMap }),
+      getFrontmatter({ missing: "[[Does Not Exist]]" }, { resolver }),
     ).toEqual({
       missing: "Does Not Exist",
     });
@@ -80,7 +73,7 @@ describe("getFrontmatter", () => {
     expect(
       getFrontmatter(
         { title: "Visible", secret: "Hidden" },
-        { contentMap, ignoredKeys: ["secret"] },
+        { resolver, ignoredKeys: ["secret"] },
       ),
     ).toEqual({ title: "Visible" });
   });
@@ -89,7 +82,7 @@ describe("getFrontmatter", () => {
     expect(
       getFrontmatter(
         { related: "[[Wiki Link]]" },
-        { contentMap, urlPrefix: "/docs" },
+        { resolver, urlPrefix: "/docs" },
       ),
     ).toEqual({
       related: { url: "/docs/wiki-link", label: "Wiki Link" },
@@ -98,39 +91,37 @@ describe("getFrontmatter", () => {
 
   it("resolves wiki links inside arrays", () => {
     expect(
-      getFrontmatter({ see: ["[[Wiki Link]]", "plain"] }, { contentMap }),
+      getFrontmatter({ see: ["[[Wiki Link]]", "plain"] }, { resolver }),
     ).toEqual({
       see: [{ url: "/wiki-link", label: "Wiki Link" }, "plain"],
     });
   });
 
   it("keeps plain strings without links untouched", () => {
-    expect(getFrontmatter({ note: "just some text" }, { contentMap })).toEqual({
+    expect(getFrontmatter({ note: "just some text" }, { resolver })).toEqual({
       note: "just some text",
     });
   });
 
   it("does not resolve a string that only contains a link among other text", () => {
     expect(
-      getFrontmatter({ mixed: "See [[Wiki Link]] now" }, { contentMap }),
+      getFrontmatter({ mixed: "See [[Wiki Link]] now" }, { resolver }),
     ).toEqual({
       mixed: "See [[Wiki Link]] now",
     });
   });
 
   it("does not resolve a string with multiple links", () => {
-    expect(
-      getFrontmatter({ multi: "[[A]] and [[B]]" }, { contentMap }),
-    ).toEqual({
+    expect(getFrontmatter({ multi: "[[A]] and [[B]]" }, { resolver })).toEqual({
       multi: "[[A]] and [[B]]",
     });
   });
 
   it("resolves a link value with surrounding whitespace", () => {
-    expect(
-      getFrontmatter({ spaced: " [[Wiki Link]] " }, { contentMap }),
-    ).toEqual({
-      spaced: { url: "/wiki-link", label: "Wiki Link" },
-    });
+    expect(getFrontmatter({ spaced: " [[Wiki Link]] " }, { resolver })).toEqual(
+      {
+        spaced: { url: "/wiki-link", label: "Wiki Link" },
+      },
+    );
   });
 });

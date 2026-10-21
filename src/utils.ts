@@ -1,6 +1,33 @@
 export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/;
 export const HIGHLIGHT_REGEX = /==(.*?)==/;
-export const FRONTMATTER_REGEX = /^---([\s\S]*?)---\r?\n?/;
+
+/**
+ * Splits the inner text of a Wiki Link into its Link Target, Alias and
+ * Subpath.
+ */
+export function parseWikiLink(content: string) {
+  const pipeIndex = content.indexOf("|");
+
+  let rawTarget: string;
+  let alias: string | undefined;
+
+  if (pipeIndex === -1) {
+    rawTarget = content;
+  } else {
+    rawTarget = content.slice(0, pipeIndex);
+    alias = content.slice(pipeIndex + 1).trim();
+  }
+
+  // Clean up whitespace and normalize slashes
+  rawTarget = rawTarget.replace(/\\/g, "/").trim();
+  if (!rawTarget) return null;
+
+  let [target, anchor] = rawTarget.split("#");
+  target = target ? target.trim() : "";
+  anchor = anchor ? anchor.trim().toLowerCase() : undefined;
+
+  return { target, alias, anchor, rawTarget };
+}
 
 /**
  * Converts a string into a URL-friendly slug.

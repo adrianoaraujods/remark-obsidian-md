@@ -2,31 +2,27 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import type { Paragraph } from "mdast";
+import type { Paragraph, Root } from "mdast";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { selectAll } from "unist-util-select";
 import { describe, expect, it } from "vitest";
-import { processHighlights } from "../src/highlights";
 
-const FIXTURES_DIR = "tests/fixtures";
-const MARKDOWN_TEST_FILE_NAME = "Highlights.md";
+import remarkObsidianMd from "../src/index.js";
+import { mapResolver } from "../src/resolver.js";
 
-describe("processHighlights", async () => {
-  const fixturePath = path.join(
-    process.cwd(),
-    `${FIXTURES_DIR}/${MARKDOWN_TEST_FILE_NAME}`,
-  );
+const fixturePath = path.join(process.cwd(), "tests/fixtures/Highlights.md");
 
-  if (!fs.existsSync(fixturePath)) {
-    throw new Error(`Fixture file not found: ${fixturePath}`);
-  }
+function processMarkdown(markdown: string): Root {
+  const processor = unified()
+    .use(remarkParse)
+    .use(remarkObsidianMd, { resolver: mapResolver({}) });
 
-  const markdownContent = fs.readFileSync(fixturePath, "utf-8");
-  const processor = unified().use(remarkParse);
-  const tree = processor.parse(markdownContent);
+  return processor.runSync(processor.parse(markdown));
+}
 
-  processHighlights(tree, {});
+describe("Highlights", () => {
+  const tree = processMarkdown(fs.readFileSync(fixturePath, "utf-8"));
 
   it("handles highlights correctly within a full paragraph", () => {
     const paragraph = selectAll("paragraph", tree)[1] as Paragraph;
