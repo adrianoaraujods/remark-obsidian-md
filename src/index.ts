@@ -16,6 +16,7 @@ export function remarkObsidianMd(
 ): Transformer<Root> {
   const wikiLinks = configureWikiLinks(this, {
     resolver: options.resolver,
+    slugger: options.slugger ?? options.wikiLinks?.slugger,
     slugify: options.slugify,
     urlPrefix: options.urlPrefix,
     unresolvedStrategy: options.wikiLinks?.unresolvedStrategy,
@@ -36,7 +37,13 @@ export type {
   GetFrontmatterOptions,
 } from "./frontmatter.js";
 export { getFrontmatter } from "./frontmatter.js";
-export { type MapResolverEntry, mapResolver } from "./resolver.js";
+export {
+  type DuplicatePolicy,
+  type FilesystemResolverOptions,
+  filesystemResolver,
+  type MapResolverEntry,
+  mapResolver,
+} from "./resolver.js";
 export type {
   CalloutsPluginOptions,
   CalloutTypeDefinition,
