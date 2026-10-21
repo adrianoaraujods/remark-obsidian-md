@@ -31,6 +31,29 @@ const notes: Record<string, string> = {
     "",
     "==Highlighted==",
   ].join("\n"),
+  "/Sections.md": [
+    "# Top",
+    "Top intro",
+    "",
+    "## Alpha",
+    "Alpha body",
+    "",
+    "### Alpha Child",
+    "Child body",
+    "",
+    "## Beta",
+    "Beta body",
+    "",
+    "# Next Top",
+    "Next body",
+  ].join("\n"),
+  "/Blocks.md": [
+    "Intro paragraph",
+    "",
+    "Referenced paragraph ^target",
+    "",
+    "Other paragraph ^other",
+  ].join("\n"),
 };
 
 const resolver = mapResolver({
@@ -48,6 +71,8 @@ const resolver = mapResolver({
   "Chain D": { path: "/Chain D.md" },
   "Chain E": { path: "/Chain E.md" },
   Nested: { path: "/Nested.md" },
+  Sections: { path: "/Sections.md", cssclasses: ["wide"] },
+  Blocks: { path: "/Blocks.md", cssclasses: ["wide"] },
 });
 
 function readNote(path: string): string | undefined {
@@ -179,6 +204,139 @@ describe("remarkObsidianEmbeds", () => {
     expect(json).toContain('"hName":"mark"');
     expect(json).toContain('"type":"callout"');
     expect(json).toContain("Callout body");
+  });
+});
+
+describe("partial Embeds", () => {
+  it("transcludes a heading section up to the next same-level heading", () => {
+    const tree = process("![[Sections#Alpha]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "heading",
+          depth: 2,
+          children: [{ type: "text", value: "Alpha" }],
+        },
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Alpha body" }],
+        },
+        {
+          type: "heading",
+          depth: 3,
+          children: [{ type: "text", value: "Alpha Child" }],
+        },
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Child body" }],
+        },
+      ],
+    });
+  });
+
+  it("ends a section at a higher-level heading", () => {
+    const tree = process("![[Sections#Top]]");
+    const json = JSON.stringify(tree);
+
+    expect(json).toContain("Top intro");
+    expect(json).toContain("Beta body");
+    expect(json).not.toContain("Next body");
+  });
+
+  it("resolves a nested heading chain to the innermost section", () => {
+    const tree = process("![[Sections#Top#Alpha]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        { type: "heading", depth: 2 },
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Alpha body" }],
+        },
+        { type: "heading", depth: 3 },
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Child body" }],
+        },
+      ],
+    });
+  });
+
+  it("matches heading names case-insensitively", () => {
+    const tree = process("![[Sections#alpha]]");
+
+    expect(JSON.stringify(tree)).toContain("Alpha body");
+  });
+
+  it("transcludes the AST node carrying a Block ID", () => {
+    const tree = process("![[Blocks#^target]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Referenced paragraph" }],
+          data: { hProperties: { id: "^target" } },
+        },
+      ],
+    });
+  });
+
+  it("renders a missing heading as an unresolved placeholder", () => {
+    const tree = process("![[Sections#Does Not Exist]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      data: {
+        hName: "div",
+        hProperties: { className: ["internal-embed", "is-unresolved"] },
+      },
+      children: [{ type: "text", value: "Sections" }],
+    });
+  });
+
+  it("renders a missing Block as an unresolved placeholder", () => {
+    const tree = process("![[Blocks#^missing]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      data: {
+        hName: "div",
+        hProperties: { className: ["internal-embed", "is-unresolved"] },
+      },
+      children: [{ type: "text", value: "Blocks" }],
+    });
+  });
+
+  it("uses the whole-Note container and CSS Classes for partial Embeds", () => {
+    const block = process("![[Sections#Alpha]]");
+    const inline = process("before ![[Blocks#^target]] after");
+
+    expect(block.children[0]).toMatchObject({
+      type: "embed",
+      data: {
+        hName: "div",
+        hProperties: { className: ["internal-embed", "wide"] },
+      },
+    });
+    expect(inline.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        { type: "text", value: "before " },
+        {
+          type: "embed",
+          data: {
+            hName: "span",
+            hProperties: { className: ["internal-embed", "wide"] },
+          },
+        },
+        { type: "text", value: " after" },
+      ],
+    });
   });
 });
 

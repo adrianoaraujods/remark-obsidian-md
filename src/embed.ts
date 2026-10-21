@@ -1,4 +1,4 @@
-import type { Root, RootContent } from "mdast";
+import type { Heading, ListItem, Root, RootContent } from "mdast";
 import type {
   CompileContext,
   Extension as FromMarkdownExtension,
@@ -16,6 +16,7 @@ import remarkParse from "remark-parse";
 import { type Processor, type Transformer, unified } from "unified";
 import { SKIP, visit } from "unist-util-visit";
 
+import { type BlockIndex, processBlockIds } from "./block-id.js";
 import { processHighlights } from "./highlights.js";
 import { mapResolver } from "./resolver.js";
 import type {
@@ -157,9 +158,9 @@ function resolveEmbed(
 ): RootContent {
   const parsed = parseWikiLink(node.value ?? "");
 
-  // Aliases, Subpaths and Assets belong to later tickets: keep the source
-  // literal until their transform understands them.
-  if (!parsed || parsed.alias || parsed.subpaths.length > 0) {
+  // Aliases and Assets belong to later tickets: keep the source literal until
+  // their transform understands them.
+  if (!parsed || parsed.alias) {
     return { type: "text", value: `![[${node.value ?? ""}]]` };
   }
 
@@ -179,6 +180,18 @@ function resolveEmbed(
     return placeholder(parsed.target);
   }
 
+  const children = parseEmbedded(
+    content,
+    context,
+    {
+      depth: state.depth + 1,
+      visited: new Set([...state.visited, resolved.path]),
+    },
+    parsed.subpaths,
+  );
+
+  if (!children) return placeholder(parsed.target);
+
   return {
     type: "embed",
     data: {
@@ -186,10 +199,7 @@ function resolveEmbed(
         className: ["internal-embed", ...resolved.note.cssclasses],
       },
     },
-    children: parseEmbedded(content, context, {
-      depth: state.depth + 1,
-      visited: new Set([...state.visited, resolved.path]),
-    }),
+    children,
   };
 }
 
@@ -207,7 +217,8 @@ function parseEmbedded(
   markdown: string,
   context: EmbedContext,
   state: EmbedState,
-): RootContent[] {
+  subpaths: string[],
+): RootContent[] | undefined {
   const processor = unified().use(remarkParse);
   const input = context.processor.data() as Record<string, unknown>;
   const data = processor.data() as Record<string, unknown>;
@@ -235,11 +246,118 @@ function parseEmbedded(
 
   const tree = processor.runSync(processor.parse(markdown)) as Root;
 
+  if (subpaths.length > 0) {
+    const blockIds = processBlockIds(tree);
+    const last = subpaths.at(-1) ?? "";
+    const selected = last.startsWith("^")
+      ? selectBlock(blockIds, last.slice(1))
+      : selectSection(tree.children, subpaths);
+
+    if (!selected) return undefined;
+
+    tree.children = selected;
+  }
+
   transformWikiLinks(tree, context.wikiLinks);
   transformEmbeds(tree, context, state);
   processHighlights(tree);
 
   return tree.children;
+}
+
+/** Selects the AST node carrying a Block ID. */
+function selectBlock(
+  blockIds: BlockIndex,
+  id: string,
+): RootContent[] | undefined {
+  const target = blockIds.get(id);
+  if (!target) return undefined;
+
+  // A lone list item is not valid at root; wrap it back in a list.
+  if (target.type === "listItem") {
+    return [
+      {
+        type: "list",
+        ordered: false,
+        spread: false,
+        children: [target as unknown as ListItem],
+      },
+    ];
+  }
+
+  return [target as unknown as RootContent];
+}
+
+/**
+ * Selects the heading's section: the heading itself up to, but excluding, the
+ * next heading of the same or higher level. Nested Subpaths walk deeper into
+ * the previous Subpath's section.
+ */
+function selectSection(
+  children: RootContent[],
+  subpaths: string[],
+): RootContent[] | undefined {
+  let start = 0;
+  let end = children.length;
+  let level = 0;
+  let found: { index: number; level: number } | undefined;
+
+  for (const subpath of subpaths) {
+    found = undefined;
+
+    for (let i = start; i < end; i++) {
+      const node = children[i];
+      if (node?.type !== "heading") continue;
+      if (sameHeading(node, subpath)) {
+        found = { index: i, level: node.depth };
+        break;
+      }
+    }
+
+    if (!found) return undefined;
+
+    start = found.index + 1;
+    level = found.level;
+    end = sectionEnd(children, start, level);
+  }
+
+  if (!found) return undefined;
+
+  return children.slice(found.index, end);
+}
+
+function sectionEnd(
+  children: RootContent[],
+  from: number,
+  level: number,
+): number {
+  for (let i = from; i < children.length; i++) {
+    const node = children[i];
+    if (node?.type === "heading" && node.depth <= level) return i;
+  }
+
+  return children.length;
+}
+
+function sameHeading(node: Heading, subpath: string): boolean {
+  return normalizeHeading(textOf(node)) === normalizeHeading(subpath);
+}
+
+function normalizeHeading(text: string): string {
+  return text.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function textOf(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+
+  const { value, children } = node as {
+    value?: unknown;
+    children?: unknown[];
+  };
+
+  if (typeof value === "string") return value;
+  if (Array.isArray(children)) return children.map(textOf).join("");
+  return "";
 }
 
 function promoteLoneEmbeds(tree: Root): void {
