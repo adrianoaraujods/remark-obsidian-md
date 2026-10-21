@@ -3,91 +3,231 @@
 [![NPM Version](https://img.shields.io/npm/v/remark-obsidian-md?color=blue&style=flat-square)](https://www.npmjs.com/package/remark-obsidian-md)
 [![License](https://img.shields.io/npm/l/remark-obsidian-md?color=green&style=flat-square)](LICENSE)
 
-**[remark](https://github.com/remarkjs/remark)** plugin to support **[Obsidian.md](https://obsidian.md)** syntax (wiki links, highlights).
+**[remark](https://github.com/remarkjs/remark)** plugin that ports **[Obsidian.md](https://obsidian.md)** markdown syntax to standard, framework-agnostic MDAST.
 
 ## Contents
 
 - [What is this?](#what-is-this)
-- [When should I use this?](#when-should-i-use-this)
 - [Installation](#installation)
-- [Features](#features)
-  - [Wiki Links](#wiki-links)
-  - [Highlights](#highlights)
+- [Recommended pipeline](#recommended-pipeline)
 - [Usage](#usage)
-  - [Unified / Remark](#unified--remark)
-  - [Next.js / Fumadocs](#nextjs--fumadocs)
 - [Options](#options)
-- [Examples](#examples)
+- [Per-feature plugins](#per-feature-plugins)
+- [Features](#features)
+- [Deliberately unsupported](#deliberately-unsupported)
+- [Frontmatter helper](#frontmatter-helper)
 - [Types](#types)
-- [Next Steps](#next-steps)
+- [Migrating from 2.0.0 to 3.0.0](#migrating-from-200-to-300)
 - [Credits](#credits)
 - [License](#license)
 
 ## What is this?
 
-This is a [remark](https://github.com/remarkjs/remark) plugin that transforms **Obsidian-specific markdown syntax** into standard compatible Markdown (MDAST) or HTML. It bridges the gap between your personal knowledge base and your web publisher.
+Obsidian extends markdown with wiki links, embeds, callouts, highlights, comments and block references that no standard markdown parser understands. This plugin parses all of them into plain MDAST — using native nodes (`link`, `image`, `text`) wherever they exist and `data.hName` / `data.hProperties` everywhere else — so the output composes with `remark-rehype`, MDX, `remark-stringify` and any downstream stack, not just one.
 
-It handles features unique to Obsidian, like **Wiki Links** (`[[Note]]`), **Embeds** (`![[Note]]`), and **Highlights** (`==text==`), resolving them correctly against your file system so they work in static site generators like Next.js, Gatsby, or Astro.
+It ships as:
 
-## When should I use this?
+- **`remarkObsidianMd`** (default export) — the composed plugin for the common case, taking one flat options object.
+- **Per-feature plugins** — `remarkObsidianWikiLinks`, `remarkObsidianEmbeds`, `remarkObsidianHighlights`, `remarkObsidianCallouts`, `remarkObsidianComments`, `remarkObsidianBlockIds`, `remarkObsidianFootnotes` — when you want to compose the pipeline yourself.
 
-Use this plugin if:
-
-- You use **Obsidian.md** to write content and want to publish it to the web (e.g., a Digital Garden or Blog).
-- You want to preserve Obsidian's internal linking graph (`[[Link]]`) without manually converting links to standard markdown (`[Link](./path/to/file.md)`).
-- You use **Next.js**, **Fumadocs**, or **Contentlayer** and want to support Obsidian highlights out of the box.
+Syntax that already has maintained plugins (GFM, math) is delegated to those plugins as peers; this package implements only the Obsidian complement.
 
 ## Installation
 
 ```bash
-npm install remark-obsidian-md
+npm install remark-obsidian-md remark-gfm
 # or
-pnpm add remark-obsidian-md
+pnpm add remark-obsidian-md remark-gfm
 # or
-yarn add remark-obsidian-md
+yarn add remark-obsidian-md remark-gfm
 ```
+
+`remark-gfm` is a peer dependency: GFM tables, task lists, strikethrough and reference footnotes are intentionally not bundled. Add it to the pipeline before this plugin.
+
+## Recommended pipeline
+
+```text
+remarkParse → remarkGfm → remarkObsidianMd → remarkRehype (or MDX)
+```
+
+`remarkGfm` runs first so wiki links inside table cells are transformed; `remarkObsidianMd` stays Obsidian-only; `remarkRehype` (or the MDX compiler) turns the MDAST into HTML. The two custom nodes this plugin emits (`embed`, `callout`) carry `hName` / `hProperties`, so `mdast-util-to-hast` renders them without a companion plugin.
+
+```ts
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import remarkObsidianMd, { filesystemResolver } from "remark-obsidian-md";
+import remarkRehype from "remark-rehype";
+import rehypeStringify from "rehype-stringify";
+
+const file = await unified()
+  .use(remarkParse)
+  .use(remarkGfm)
+  .use(remarkObsidianMd, {
+    resolver: filesystemResolver("./vault"),
+    urlPrefix: "/docs", // optional
+  })
+  .use(remarkRehype)
+  .use(rehypeStringify)
+  .process("[[My Note]] ==highlighted== > [!tip]");
+
+console.log(String(file));
+```
+
+With **MDX** (e.g. Next.js, Fumadocs), use the same plugins in your `remarkPlugins` array — the plugin emits no MDX JSX nodes.
+
+## Usage
+
+```ts
+import remarkObsidianMd, {
+  filesystemResolver,
+  mapResolver,
+} from "remark-obsidian-md";
+```
+
+Pass a **Resolver** so wiki links and embeds can find their targets. Two are built in:
+
+- `filesystemResolver(vault, { duplicatePolicy })` — scans a Vault directory once (lazily, cached). Notes are matched by path, basename and Alias; Assets by path and filename. Matching is case-insensitive, the `.md` extension is optional, and duplicate basenames resolve **root-wins** by default, matching Obsidian.
+- `mapResolver(map)` — an in-memory `{ "Note": { path, title?, aliases?, cssclasses? } }` map, for when your content already lives somewhere else (a CMS, an in-memory index, tests).
+
+Without a `resolver`, every target is unresolved and links render with the unresolved strategy (see [Options](#options)).
+
+## Options
+
+The composed plugin takes one flat options object:
+
+```ts
+import type { RemarkObsidianMdOptions } from "remark-obsidian-md";
+```
+
+| Option                             | Type                                        | Default              | Description                                                                                                   |
+| :--------------------------------- | :------------------------------------------ | :------------------- | :------------------------------------------------------------------------------------------------------------ |
+| `resolver`                         | `Resolver`                                 | empty map            | Resolves Link Targets: `filesystemResolver(vault)` or `mapResolver(map)`. Without one, nothing resolves.       |
+| `slugify`                          | `(text: string) => string`                 | built-in slugify     | Converts file paths to URL segments.                                                                          |
+| `slugger`                          | `(text: string) => string`                 | GitHub-style slugs    | Slugs heading anchors.                                                                                         |
+| `urlPrefix`                        | `string`                                   | `""`                 | Prepended to every generated URL (e.g. `"/docs"`).                                                             |
+| `wikiLinks.unresolvedStrategy`     | `"link" \| "plain"`                         | `"link"`             | `"link"` renders `<a class="is-unresolved">`; `"plain"` renders the label as text.                             |
+| `wikiLinks.slugger`                | `(text: string) => string`                 | top-level `slugger`  | Per-feature override of the anchor slugger.                                                                    |
+| `embeds.readNote`                  | `(path: string) => string \| undefined`    | –                    | Reads a Note's markdown by its resolved path; required for transclusion.                                       |
+| `embeds.maxDepth`                  | `number`                                    | `4`                  | Maximum transclusion nesting depth (cycle-guarded).                                                           |
+| `blockIds.readNote`                | `(path: string) => string \| undefined`    | `embeds.readNote`    | Reads a Note's markdown for cross-Note Block References.                                                       |
+| `callouts.types`                   | `Record<string, CalloutTypeDefinition>`    | canonical 13 types   | Register or override Callout types (`{ icon?, color?, title? }`). Unknown types fall back to `note`.            |
+
+```ts
+// Everything together
+use(remarkObsidianMd, {
+  resolver: filesystemResolver("./vault"),
+  slugify: mySlugify,
+  urlPrefix: "/docs",
+  wikiLinks: { unresolvedStrategy: "plain" },
+  embeds: { readNote: (path) => fs.readFileSync(path, "utf8"), maxDepth: 2 },
+  blockIds: { readNote: sameReader },
+  callouts: {
+    types: {
+      plant: { icon: "plant", color: "green", title: "Gardening" },
+    },
+  },
+});
+```
+
+## Per-feature plugins
+
+Each per-feature plugin takes its own options and can be composed by hand instead of the default:
+
+```ts
+import {
+  remarkObsidianWikiLinks,
+  remarkObsidianEmbeds,
+  remarkObsidianHighlights,
+  remarkObsidianCallouts,
+  remarkObsidianComments,
+  remarkObsidianBlockIds,
+  remarkObsidianFootnotes,
+} from "remark-obsidian-md";
+```
+
+| Plugin                     | Options                                                                                |
+| :------------------------- | :------------------------------------------------------------------------------------- |
+| `remarkObsidianWikiLinks`  | `resolver`, `slugify`, `slugger`, `urlPrefix`, `unresolvedStrategy`                     |
+| `remarkObsidianEmbeds`    | the Wiki Links options plus `readNote`, `maxDepth`                                     |
+| `remarkObsidianHighlights` | –                                                                                       |
+| `remarkObsidianCallouts`   | `types`                                                                                 |
+| `remarkObsidianComments`   | –                                                                                       |
+| `remarkObsidianBlockIds`   | –                                                                                       |
+| `remarkObsidianFootnotes`  | –                                                                                       |
 
 ## Features
 
 ### Wiki Links
 
-The plugin scans your `root` directory to resolve file paths automatically. You don't need to know the relative path; just the filename is enough.
+- `[[Note]]` → a link to the Note's published URL (slugified, `urlPrefix`-prefixed).
+- `[[Note|Alias]]` → displays the Alias.
+- `[[Note#Heading]]`, `[[#Heading]]` and `[[Note#H1#H2]]` → links to heading anchors (GitHub-style slugs by default).
+- `[[Note#^block-id]]`, `[[#^block-id]]` → links to a Block Reference.
+- `[[Note\|Alias]]` inside a table cell still parses as an aliased link.
+- Unresolved links render as `<a class="is-unresolved">` (or plain text) — never a broken link.
+- Wiki links fire in every phrasing context (headings, lists, emphasis, table cells, callout bodies, transcluded content), are left alone inside code, and render literally inside standard link text.
+- The Anchor Slugger defaults to GitHub-style slugs; override with `slugger`.
 
-- **Standard:** `[[My File]]` → becomes a link to `/my-file` (slugified).
-- **Headings:** `[[My File#Some Heading]]` or `[[#Some Heading]]` → links to the specific anchor in the page.
+### Embeds
 
-#### Aliasing
-
-You can display custom text for a link using the pipe `|` separator.
-
-- `[[My File|Click Here]]` → Renders a link pointing to `My File` but displaying "Click Here".
-
-#### Note Embedding
-
-Using `![[My Note]]` will embed the content of that note directly into the current page.
+- `![[Note]]` transcludes the whole Note; `![[Note#Heading]]` a section; `![[Note#^block-id]]` a single Block.
+- Transcluded content lives in the `embed` node's `children`, so markdown inside it is processed as markdown (embedded wiki links, callouts and highlights work).
+- The Embed container carries the embedded Note's CSS Classes; a lone Embed is promoted to a `div.internal-embed`, a mid-text Embed becomes a `span.internal-embed`.
+- `![[image.png]]` renders an `<img>`, with `![[image.png|300]]` and `|300x200` sizing. `![[clip.mp3]]` / `![[clip.mp4]]` render `<audio>` / `<video>` leaves. PDF embeds fall back to a link.
+- Unresolved Embeds render a marked placeholder instead of disappearing.
+- Transclusion stops at `embeds.maxDepth` (default 4) and survives cycles (`A` → `B` → `A`).
 
 ### Highlights
 
-Text wrapped in double equals `==highlighted text==` is transformed into an HTML `<mark>highlighted text</mark>` tag.
+`==text==` renders `<mark>text</mark>` in paragraphs, table cells and Callout bodies, but not inside code. Highlight colors (`==🔴red==`) are not transformed.
 
-### Frontmatter
+### Callouts
 
-Instead of rendering a built-in frontmatter component, the plugin exposes a
-pure helper, `getFrontmatter`, that resolves a parsed frontmatter object (e.g.
-the one fumadocs already provides) into a plain object you can render yourself.
+Callouts reproduce Obsidian's reading-view DOM: `> [!note]` becomes `div.callout[data-callout]`; foldable callouts (`> [!faq]-` / `+`) become `details.callout.is-collapsible[open]`. Aliases (`[!hint]`) map to canonical types (`tip`); unknown types fall back to `note`. The 13 canonical types ship built in; register custom types via `callouts.types`. Icons are `.callout-title-icon[data-icon]` — CSS decides the glyph, no inline SVGs.
 
-Wiki links (`[[Note]]`) and URLs inside string values are resolved to
-`{ url, label }` objects. The `url` is always **root-relative** (starts with
-`/`), so it can be passed straight through fumadocs'
-`createRelativeLink` (or rendered with any `<Link>` component). Unresolved wiki
-links degrade gracefully to their label text. All other value types (boolean,
-number, array, plain string) are returned unchanged.
+### Comments
+
+`%%inline%%` is removed (text after it stays). A line-start `%%` block, including multi-line blocks with blank lines and markdown, is removed whole. An unclosed `%%` hides the rest of the Note. `%%` inside code is left alone.
+
+### Block IDs and Block References
+
+A trailing `^id` (charset `[A-Za-z0-9-]`, preceded by whitespace) is stripped from output and the target block is annotated with `id="^id"`, so `[[Note#^id]]` links land. No Block IDs are auto-generated, matching Obsidian.
+
+### Inline Footnotes
+
+`^[text]` renders as `<sup>text</sup>` with no footnote section — a deliberate divergence from Obsidian (no definitions, no numbering).
+
+## Deliberately unsupported
+
+These features are intentionally out of scope, each with the plugin that covers it where one exists:
+
+| Feature                              | Cover it with                                                                                              |
+| :----------------------------------- | :-------------------------------------------------------------------------------------------------------- |
+| Tags (`#tag`)                        | Rendered as plain text; no maintained plugin — post-process yourself.                                       |
+| GFM reference footnotes (`[^id]`)    | [`remark-gfm`](https://github.com/remarkjs/remark-gfm)                                                     |
+| Highlight colors (`==🔴red==`)       | Not transformed; post-process or extend the Highlight transform.                                           |
+| Math (`$…$`, `$$…$$`)                | [`remark-math`](https://github.com/remarkjs/remark-math) + [`rehype-katex`](https://github.com/remarkjs/remark-math) |
+| Code blocks / syntax highlighting   | `remark-rehype` + [`rehype-highlight`](https://github.com/remarkjs/remark-rehype) or Shiki                  |
+| Mermaid diagrams                     | [`rehype-mermaid`](https://github.com/remcohaszing/rehype-mermaid)                                         |
+| Canvas / Bases                       | Obsidian proprietary formats; no markdown plugin can cover them.                                           |
+| Search embeds (`![[search]]`)        | Obsidian proprietary; no plugin.                                                                           |
+| HTML rendering inside markdown       | [`rehype-raw`](https://github.com/rehypejs/rehype-raw)                                                    |
+| Dataview inline fields               | No maintained plugin; process with the Dataview API before remark.                                         |
+| Frontmatter parsing                  | [`remark-frontmatter`](https://github.com/remarkjs/remark-frontmatter) — this package's `getFrontmatter` consumes an already-parsed object |
+
+## Frontmatter helper
+
+Instead of rendering a built-in frontmatter component, the plugin exposes a pure helper, `getFrontmatter`, that resolves a parsed frontmatter object into a plain object you can render yourself.
+
+Wiki links (`[[Note]]`) and URLs are resolved to `{ url, label }` objects when the whole string value is a single link. Arrays and nested objects are resolved recursively; unresolved wiki links degrade to their label; all other value types are returned unchanged.
 
 ```ts
 import { getFrontmatter } from "remark-obsidian-md";
 
 const frontmatter = getFrontmatter(page.data.frontmatter, {
-  contentMap, // the same Map you pass to the plugin
+  resolver, // the same Resolver you pass to the plugin
+  slugify, // optional
   urlPrefix: "/docs", // optional
   ignoredKeys: ["secret"], // optional
 });
@@ -95,116 +235,29 @@ const frontmatter = getFrontmatter(page.data.frontmatter, {
 // frontmatter.related === { url: "/docs/my-note", label: "My Note" }
 ```
 
-This keeps link resolution in one place: render the returned object with your
-own component (matching the way Obsidian.md displays properties), without
-duplicating the plugin's slugify / content-map logic.
-
-## Usage
-
-### Unified / Remark
-
-Use it as a standard plugin in your unified processor. You can provide the `root` directory so the plugin know how to resolve file paths (defaults to `./public/`).
-
-```javascript
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkObsidianMd from "remark-obsidian-md";
-import remarkRehype from "remark-rehype";
-import rehypeStringify from "rehype-stringify";
-
-const file = await unified()
-  .use(remarkParse)
-  // Add the plugin here
-  .use(remarkObsidianMd, {
-    root: "./public/vault",
-    // Add another options here
-  })
-  .use(remarkRehype)
-  .use(rehypeStringify)
-  .process("[[My Note]]");
-
-console.log(String(file));
-```
-
-### Next.js / Fumadocs
-
-If you are using **Fumadocs**, add the plugin to your source configuration.
-
-```ts
-// source.config.ts
-import { defineConfig, defineDocs } from "fumadocs-mdx/config";
-import remarkObsidianMd, { type Options } from "remark-obsidian-md";
-
-export const content = defineDocs({
-  dir: "./public/vault", // Your markdown content directory
-});
-
-export default defineConfig({
-  mdxOptions: {
-    remarkPlugins: [
-      [
-        remarkObsidianMd,
-        {
-          root: "./public/vault",
-          // Optional: Add a prefix if your docs live under /docs
-          urlPrefix: "/docs",
-        } satisfies Options,
-      ],
-    ],
-  },
-});
-```
-
-## Options
-
-| Option                | Type                       | Default      | Description                                                                                        |
-| :-------------------- | :------------------------- | :----------- | :------------------------------------------------------------------------------------------------- |
-| `root`                | `string`                   | `"./public"` | Directory path where your Obsidian vault/markdown files are located.                               |
-| `urlPrefix`           | `string`                   | `undefined`  | A string to prepend to all generated URLs (e.g., `"/docs"`).                                       |
-| `enableWikiLinks`     | `boolean`                  | `true`       | Enable parsing of `[[Wiki Links]]`.                                                                |
-| `enableEmbeds`        | `boolean`                  | `true`       | Enable parsing of `![[Embeds]]`.                                                                   |
-| `enableHighlights`    | `boolean`                  | `true`       | Enable parsing of `==highlight==`.                                                                 |
-| `slugify`             | `(text: string) => string` | -            | Custom function to convert file names to URLs.                                                     |
-| `customProps`         | `object`                   | -            | Inject custom HTML attributes/classes into generated nodes (wikiLinks, highlights).                |
-| `contentMap`          | `Map<string, Metadata>`    | -            | **Advanced:** Manually provide the map of files instead of scanning `root`.                        |
-
-## Examples
-
-### Custom Styling
-
-The plugin produces standard HTML elements you can style freely. Wiki links
-render as `<a>` elements, highlights as `<mark>`, and embeds as `<include>`
-elements resolved against your file system.
-
 ## Types
 
-This package is fully typed with [TypeScript](https://www.typescriptlang.org).
-It exports the additional type [`Options`](#nextjs--fumadocs).
+This package is fully typed with [TypeScript](https://www.typescriptlang.org). It exports `RemarkObsidianMdOptions`, `Resolver`, `ResolvedTarget`, `NoteMetadata`, `MapResolverEntry`, `FilesystemResolverOptions`, `DuplicatePolicy`, `UnresolvedStrategy`, `WikiLinksOptions`, `WikiLinksPluginOptions`, `EmbedsOptions`, `EmbedsPluginOptions`, `BlockIdsOptions`, `CalloutsPluginOptions`, `CalloutTypeDefinition`, `GetFrontmatterOptions` and `FrontmatterLink`.
 
-The node types are supported in [`@types/mdast`](https://www.npmjs.com/package/@types/mdast) by default.
+The custom `embed` and `callout` nodes are registered in the `@types/mdast` maps via module augmentation.
 
-## Migrating to 2.0.0
+## Migrating from 2.0.0 to 3.0.0
 
-Version 2.0.0 is a breaking release:
+Version 3.0.0 is a breaking rewrite. The output is framework-agnostic MDAST — no MDX JSX nodes, no lock-in to Fumadocs.
 
-- **Images removed.** Image handling (`![[image.png]]`, image links, dimensions)
-  is no longer provided — image embedding is handled by fumadocs / your MDX
-  pipeline. The `image-size` dependency and the `publicFolder` option were
-  removed. `ContentMetadata` is now markdown-only (`type: "md"`).
-- **Built-in frontmatter component removed.** The `enableFrontmatter` option and
-  the injected `<details>` frontmatter component are gone. Use the new
-  `getFrontmatter(frontmatter, { contentMap })` helper to obtain a resolved
-  frontmatter object and render it with your own component.
-- **Callouts removed.** Callout rendering (`> [!type]`) is now handled natively
-  by Fumadocs. The `callouts` / `calloutCollapseIcon` / `useMdxCallout` /
-  `enableCallouts` options and the `customProps.callouts` block were removed,
-  along with the bundled `styles/callouts.css` and `styles/callouts-colors.css`.
-- **Removed options / `customProps`:** `enableFrontmatter`,
-  `ignoredFrontmatterKeys`, `customProps.frontmatter`, `customProps.imageLinks`,
-  `customProps.imageEmbeds`, `enableCallouts`, `useMdxCallout`,
-  `calloutCollapseIcon`, `callouts`, and `customProps.callouts`.
+- **`root` option → `resolver`.** The filesystem scan is no longer wired into the plugin. Pass `resolver: filesystemResolver("./vault")` (same scanning, case-insensitive, extension-optional, root-wins) or `resolver: mapResolver({ … })` for your own index. `getContentMap` / `contentMap` are gone.
+- **`enable*` flags removed.** `enableWikiLinks`, `enableEmbeds`, `enableHighlights` etc. are gone. To omit a feature, compose the per-feature plugins yourself instead of the composed default.
+- **`customProps` removed.** Nodes no longer take injected attributes from options. Custom nodes carry `data.hName` / `data.hProperties` (standard `mdast-util-to-hast` mechanism); post-process the MDAST to tweak properties.
+- **`include` node removed.** Embeds are now the custom `embed` node whose `children` hold the transcluded content, so downstream plugins process it. Both custom nodes render through `remark-rehype` without a companion plugin.
+- **`getFrontmatter` options changed.** `{ contentMap, urlPrefix, ignoredKeys }` is now `{ resolver, slugify?, urlPrefix?, ignoredKeys? }` — pass the same Resolver you pass to the plugin. Behaviour is otherwise unchanged.
+- **Callouts are back.** 2.0.0 removed them; 3.0.0 renders Obsidian's reading-view DOM and the bundled `styles/*.css` is gone (the `styles` export was removed with it). Icon hooks are `.callout-title-icon[data-icon]`.
+- **New syntax.** Comments (`%%…%%`), Block IDs / Block References (`^id`), inline Footnotes (`^[text]`), aliases, nested-heading Subpaths and Callout folding are now supported.
+- **`remark-gfm` is a peer dependency.** Install it and put it before this plugin in the pipeline.
+- **Images are supported again** as Asset embeds (`![[image.png|300x200]]`), plus `<audio>` / `<video>` for media files.
 
 ## Credits
+
+Inspired by the Obsidian publishing community and the [remark](https://github.com/remarkjs/remark) ecosystem.
 
 ## License
 
