@@ -30,8 +30,9 @@ export type GetFrontmatterOptions = {
  * value is a single wiki link or URL** (e.g. `"[[Note]]"`,
  * `"[[Note|Alias]]"`, `"https://example.com"`). Strings that merely *contain*
  * a link alongside other text are returned unchanged, so no surrounding text
- * or extra links is silently dropped. Every other value type (boolean,
- * number, array, plain string) is returned unchanged.
+ * or extra links is silently dropped. Arrays and nested objects are resolved
+ * recursively; every other value type (boolean, number, Date) is returned
+ * unchanged.
  */
 export function getFrontmatter(
   frontmatter: Record<string, unknown>,
@@ -51,6 +52,15 @@ export function getFrontmatter(
 function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => resolveValue(item, options));
+  }
+
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        resolveValue(item, options),
+      ]),
+    );
   }
 
   if (typeof value !== "string") {
@@ -94,4 +104,10 @@ function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
   });
 
   return { url: resolvedUrl, label } satisfies FrontmatterLink;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
