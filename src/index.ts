@@ -43,7 +43,13 @@ export type {
   GetFrontmatterOptions,
 } from "./frontmatter.js";
 export { getFrontmatter } from "./frontmatter.js";
-export { type MapResolverEntry, mapResolver } from "./resolver.js";
+export {
+  type DuplicatePolicy,
+  type FilesystemResolverOptions,
+  filesystemResolver,
+  type MapResolverEntry,
+  mapResolver,
+} from "./resolver.js";
 export type {
   EmbedsOptions,
   EmbedsPluginOptions,
