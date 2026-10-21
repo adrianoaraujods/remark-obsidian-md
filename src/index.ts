@@ -17,6 +17,7 @@ export function remarkObsidianMd(
 ): Transformer<Root> {
   const wikiLinks = configureWikiLinks(this, {
     resolver: options.resolver,
+    slugger: options.slugger ?? options.wikiLinks?.slugger,
     slugify: options.slugify,
     urlPrefix: options.urlPrefix,
     unresolvedStrategy: options.wikiLinks?.unresolvedStrategy,

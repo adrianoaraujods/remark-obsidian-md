@@ -21,7 +21,14 @@ import type {
   WikiLinkNode,
   WikiLinksPluginOptions,
 } from "./types.js";
-import { parseWikiLink, slugify, slugifyUrl } from "./utils.js";
+import {
+  anchorFor,
+  githubSlugger,
+  type ParsedWikiLink,
+  parseWikiLink,
+  slugify,
+  slugifyUrl,
+} from "./utils.js";
 
 /**
  * Micromark inline token for `[[…]]`. It fires in every phrasing context and
@@ -92,19 +99,32 @@ export const wikiLinkFromMarkdown: FromMarkdownExtension = {
 };
 
 export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
+  literalizeLinkText(tree);
+
   visit(tree, "wikiLink", (node, index, parent) => {
     if (index === undefined || !parent) return;
 
     const parsed = parseWikiLink(node.value);
-
-    // Aliases, Subpaths and Embeds belong to later tickets: keep the source
-    // literal until a transform understands them.
-    if (!parsed || parsed.alias || parsed.anchor) {
-      parent.children[index] = { type: "text", value: `[[${node.value}]]` };
+    if (!parsed) {
+      parent.children[index] = literal(node);
       return;
     }
 
-    const label = parsed.rawTarget;
+    const label = aliasOrTarget(parsed);
+    const anchor = anchorFor(parsed.subpaths, context.slugger);
+
+    // A same-Note Subpath (`[[#Heading]]`) only ever needs the fragment.
+    if (!parsed.target) {
+      parent.children[index] = anchor
+        ? {
+            type: "link",
+            url: `#${anchor}`,
+            children: [{ type: "text", value: label }],
+          }
+        : literal(node);
+      return;
+    }
+
     const resolved = context.resolver.resolve(parsed.target);
 
     if (resolved.exists && resolved.kind === "note") {
@@ -113,6 +133,7 @@ export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
         url: slugifyUrl(resolved.path, {
           slugify: context.slugify,
           urlPrefix: context.urlPrefix,
+          ...(anchor ? { anchor } : {}),
         }),
         children: [{ type: "text", value: label }],
       };
@@ -131,6 +152,28 @@ export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
   });
 }
 
+/**
+ * A Wiki Link inside standard link text renders literally, so the output never
+ * nests one anchor inside another.
+ */
+function literalizeLinkText(tree: Root): void {
+  visit(tree, ["link", "linkReference"], (link) => {
+    visit(link, "wikiLink", (node, index, parent) => {
+      if (index !== undefined && parent) parent.children[index] = literal(node);
+    });
+  });
+}
+
+function aliasOrTarget(parsed: ParsedWikiLink) {
+  return (
+    parsed.alias || parsed.target || parsed.subpaths.at(-1) || parsed.rawTarget
+  );
+}
+
+function literal(node: WikiLinkNode) {
+  return { type: "text" as const, value: `[[${node.value}]]` };
+}
+
 export function configureWikiLinks(
   processor: Processor,
   options: WikiLinksPluginOptions,
@@ -141,6 +184,7 @@ export function configureWikiLinks(
 
   return {
     resolver: options.resolver ?? mapResolver({}),
+    slugger: options.slugger ?? githubSlugger,
     slugify: options.slugify ?? slugify,
     urlPrefix: options.urlPrefix ?? "",
     unresolvedStrategy: options.unresolvedStrategy ?? "link",

@@ -18,6 +18,7 @@ export type Resolver = {
 export type UnresolvedStrategy = "link" | "plain";
 
 export type WikiLinksOptions = {
+  slugger?: ((text: string) => string) | undefined;
   unresolvedStrategy?: UnresolvedStrategy | undefined;
 };
 
@@ -30,6 +31,7 @@ export type EmbedsOptions = {
 
 export type RemarkObsidianMdOptions = {
   resolver?: Resolver | undefined;
+  slugger?: ((text: string) => string) | undefined;
   slugify?: ((text: string) => string) | undefined;
   urlPrefix?: string | undefined;
   wikiLinks?: WikiLinksOptions | undefined;
@@ -38,6 +40,7 @@ export type RemarkObsidianMdOptions = {
 
 export type WikiLinksPluginOptions = {
   resolver?: Resolver | undefined;
+  slugger?: ((text: string) => string) | undefined;
   slugify?: ((text: string) => string) | undefined;
   urlPrefix?: string | undefined;
   unresolvedStrategy?: UnresolvedStrategy | undefined;
@@ -47,6 +50,7 @@ export type EmbedsPluginOptions = WikiLinksPluginOptions & EmbedsOptions;
 
 export type WikiLinkContext = {
   resolver: Resolver;
+  slugger: (text: string) => string;
   slugify: (text: string) => string;
   urlPrefix: string;
   unresolvedStrategy: UnresolvedStrategy;
