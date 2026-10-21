@@ -8,6 +8,7 @@ import { mapResolver } from "../src/resolver.js";
 import type {
   EmbedsPluginOptions,
   RemarkObsidianMdOptions,
+  Resolver,
 } from "../src/types.js";
 
 const notes: Record<string, string> = {
@@ -31,6 +32,7 @@ const notes: Record<string, string> = {
     "",
     "==Highlighted==",
   ].join("\n"),
+  "/Gallery.md": "![[Image.png]]",
 };
 
 const resolver = mapResolver({
@@ -48,6 +50,7 @@ const resolver = mapResolver({
   "Chain D": { path: "/Chain D.md" },
   "Chain E": { path: "/Chain E.md" },
   Nested: { path: "/Nested.md" },
+  Gallery: { path: "/Gallery.md" },
 });
 
 function readNote(path: string): string | undefined {
@@ -201,6 +204,214 @@ describe("remarkObsidianEmbeds (standalone)", () => {
       type: "embed",
       data: { hName: "div" },
       children: [{ type: "paragraph" }],
+    });
+  });
+});
+
+const assets: Record<string, { path: string; ext: string }> = {
+  "image.png": { path: "/Image.png", ext: ".png" },
+  "folder/photo.jpg": { path: "/folder/Photo.jpg", ext: ".jpg" },
+  "clip.mp3": { path: "/Clip.mp3", ext: ".mp3" },
+  "clip.mp4": { path: "/Clip.mp4", ext: ".mp4" },
+  "doc.pdf": { path: "/Doc.pdf", ext: ".pdf" },
+};
+
+const assetResolver: Resolver = {
+  resolve(target) {
+    const asset = assets[target.toLowerCase()];
+    if (asset) return { kind: "asset", exists: true, ...asset };
+    return resolver.resolve(target);
+  },
+};
+
+function processAssets(markdown: string): Root {
+  return process(markdown, { resolver: assetResolver });
+}
+
+describe("remarkObsidianEmbeds (Assets)", () => {
+  it("renders an image Asset as an img carrying the Embed container class", () => {
+    const tree = processAssets("![[Image.png]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "image",
+          url: "/Image.png",
+          alt: "",
+          data: { hProperties: { className: ["internal-embed"] } },
+        },
+      ],
+    });
+  });
+
+  it("sets the width from a numeric Alias", () => {
+    const tree = processAssets("![[Image.png|300]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "image",
+          alt: "",
+          data: {
+            hProperties: {
+              className: ["internal-embed"],
+              width: 300,
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  it("sets width and height from a WxH Alias", () => {
+    const tree = processAssets("![[Image.png|300x200]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "image",
+          data: {
+            hProperties: {
+              className: ["internal-embed"],
+              width: 300,
+              height: 200,
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  it("uses a non-numeric Alias as alt text", () => {
+    const tree = processAssets("![[Image.png|A cat]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "image",
+          alt: "A cat",
+          data: { hProperties: { className: ["internal-embed"] } },
+        },
+      ],
+    });
+  });
+
+  it("preserves a nested Asset path", () => {
+    const tree = processAssets("![[folder/Photo.jpg]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [{ type: "image", url: "/folder/Photo.jpg" }],
+    });
+  });
+
+  it("renders an audio Asset as an audio leaf", () => {
+    const tree = processAssets("![[Clip.mp3]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      data: {
+        hName: "audio",
+        hProperties: {
+          className: ["internal-embed"],
+          src: "/Clip.mp3",
+          controls: true,
+        },
+      },
+      children: [],
+    });
+  });
+
+  it("renders a video Asset as a video leaf", () => {
+    const tree = processAssets("![[Clip.mp4]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      data: {
+        hName: "video",
+        hProperties: {
+          className: ["internal-embed"],
+          src: "/Clip.mp4",
+          controls: true,
+        },
+      },
+      children: [],
+    });
+  });
+
+  it("falls back to a link for an unsupported Asset type", () => {
+    const tree = processAssets("![[Doc.pdf]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "link",
+          url: "/Doc.pdf",
+          children: [{ type: "text", value: "Doc.pdf" }],
+        },
+      ],
+    });
+  });
+
+  it("uses the Alias as the fallback link's label", () => {
+    const tree = processAssets("![[Doc.pdf|The doc]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "link",
+          url: "/Doc.pdf",
+          children: [{ type: "text", value: "The doc" }],
+        },
+      ],
+    });
+  });
+
+  it("renders an unresolved Asset Embed as a marked placeholder", () => {
+    const tree = processAssets("![[Missing.png]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      data: {
+        hName: "div",
+        hProperties: { className: ["internal-embed", "is-unresolved"] },
+      },
+      children: [{ type: "text", value: "Missing.png" }],
+    });
+  });
+
+  it("renders an unresolved sized or aliased Asset Embed as a placeholder", () => {
+    for (const markdown of ["![[Missing.png|300]]", "![[Missing.png|Alt]]"]) {
+      expect(processAssets(markdown).children[0]).toMatchObject({
+        type: "embed",
+        data: {
+          hProperties: { className: ["internal-embed", "is-unresolved"] },
+        },
+        children: [{ type: "text", value: "Missing.png" }],
+      });
+    }
+  });
+
+  it("resolves Asset Embeds inside transcluded Notes", () => {
+    const tree = process("![[Gallery]]", {
+      resolver: assetResolver,
+      embeds: { readNote: (path) => notes[path] },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "image", url: "/Image.png" }],
+        },
+      ],
     });
   });
 });
