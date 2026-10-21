@@ -1,6 +1,7 @@
 import type { Root } from "mdast";
 import type { Processor, Transformer } from "unified";
 
+import { processBlockIds } from "./block-id.js";
 import { transformCallouts } from "./callouts.js";
 import { configureEmbeds, transformEmbeds } from "./embed.js";
 import { processHighlights } from "./highlights.js";
@@ -34,13 +35,23 @@ export function remarkObsidianMd(
     // Embeds expand first so the later transforms also reach their children.
     transformEmbeds(tree, embeds);
     transformCallouts(tree, options.callouts);
-    transformWikiLinks(tree, wikiLinks);
+
+    const blockIds = processBlockIds(tree);
+
+    transformWikiLinks(tree, {
+      ...wikiLinks,
+      blockIds: {
+        current: blockIds,
+        readNote: options.blockIds?.readNote ?? options.embeds?.readNote,
+      },
+    });
     processHighlights(tree);
   };
 }
 
 export default remarkObsidianMd;
 
+export { remarkObsidianBlockIds } from "./block-id.js";
 export { remarkObsidianCallouts } from "./callouts.js";
 export { remarkObsidianEmbeds } from "./embed.js";
 export type {
@@ -56,6 +67,7 @@ export {
   mapResolver,
 } from "./resolver.js";
 export type {
+  BlockIdsOptions,
   CalloutsPluginOptions,
   CalloutTypeDefinition,
   EmbedsOptions,

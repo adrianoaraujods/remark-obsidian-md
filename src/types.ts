@@ -22,6 +22,11 @@ export type WikiLinksOptions = {
   unresolvedStrategy?: UnresolvedStrategy | undefined;
 };
 
+export type BlockIdsOptions = {
+  /** Reads a Note's markdown by its resolved path, for cross-Note Block References. */
+  readNote?: ((path: string) => string | undefined) | undefined;
+};
+
 export type EmbedsOptions = {
   /** Reads a Note's markdown by its resolved path. */
   readNote?: ((path: string) => string | undefined) | undefined;
@@ -35,6 +40,7 @@ export type RemarkObsidianMdOptions = {
   slugify?: ((text: string) => string) | undefined;
   urlPrefix?: string | undefined;
   wikiLinks?: WikiLinksOptions | undefined;
+  blockIds?: BlockIdsOptions | undefined;
   embeds?: EmbedsOptions | undefined;
   callouts?: CalloutsPluginOptions | undefined;
 };
@@ -55,6 +61,13 @@ export type WikiLinkContext = {
   slugify: (text: string) => string;
   urlPrefix: string;
   unresolvedStrategy: UnresolvedStrategy;
+  /** Current Note's Block IDs plus a reader for cross-Note lookups. */
+  blockIds?:
+    | {
+        current: ReadonlyMap<string, unknown>;
+        readNote?: ((path: string) => string | undefined) | undefined;
+      }
+    | undefined;
 };
 
 export type CalloutTypeDefinition = {
