@@ -14,7 +14,7 @@ import type {
 } from "micromark-util-types";
 import type { Processor, Transformer } from "unified";
 import { visit } from "unist-util-visit";
-
+import { scanBlockIds } from "./block-id.js";
 import { mapResolver } from "./resolver.js";
 import type {
   WikiLinkContext,
@@ -116,18 +116,24 @@ export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
     // A same-Note Subpath (`[[#Heading]]`) only ever needs the fragment.
     if (!parsed.target) {
       parent.children[index] = anchor
-        ? {
-            type: "link",
-            url: `#${anchor}`,
-            children: [{ type: "text", value: label }],
-          }
+        ? blockReferenceResolves(anchor, context)
+          ? {
+              type: "link",
+              url: `#${anchor}`,
+              children: [{ type: "text", value: label }],
+            }
+          : unresolved(label, context)
         : literal(node);
       return;
     }
 
     const resolved = context.resolver.resolve(parsed.target);
 
-    if (resolved.exists && resolved.kind === "note") {
+    if (
+      resolved.exists &&
+      resolved.kind === "note" &&
+      blockReferenceResolves(anchor, context, resolved.path)
+    ) {
       parent.children[index] = {
         type: "link",
         url: slugifyUrl(resolved.path, {
@@ -140,16 +146,38 @@ export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
       return;
     }
 
-    parent.children[index] =
-      context.unresolvedStrategy === "plain"
-        ? { type: "text", value: label }
-        : {
-            type: "link",
-            url: "#",
-            children: [{ type: "text", value: label }],
-            data: { hProperties: { className: "is-unresolved" } },
-          };
+    parent.children[index] = unresolved(label, context);
   });
+}
+
+/**
+ * A Block Reference only resolves when its target Block can be found: in the
+ * current Note's index, or in another Note's markdown. Without an index or a
+ * reader there is nothing to check against, so the link is kept.
+ */
+function blockReferenceResolves(
+  anchor: string | undefined,
+  context: WikiLinkContext,
+  notePath?: string,
+): boolean {
+  if (!anchor?.startsWith("^") || !context.blockIds) return true;
+
+  const id = anchor.slice(1);
+  if (notePath === undefined) return context.blockIds.current.has(id);
+
+  const body = context.blockIds.readNote?.(notePath);
+  return body === undefined || scanBlockIds(body).has(id);
+}
+
+function unresolved(label: string, context: WikiLinkContext) {
+  return context.unresolvedStrategy === "plain"
+    ? { type: "text" as const, value: label }
+    : {
+        type: "link" as const,
+        url: "#",
+        children: [{ type: "text" as const, value: label }],
+        data: { hProperties: { className: "is-unresolved" } },
+      };
 }
 
 /**

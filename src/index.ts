@@ -1,6 +1,7 @@
 import type { Root } from "mdast";
 import type { Processor, Transformer } from "unified";
 
+import { processBlockIds } from "./block-id.js";
 import { processHighlights } from "./highlights.js";
 import type { RemarkObsidianMdOptions } from "./types.js";
 import { configureWikiLinks, transformWikiLinks } from "./wiki-link.js";
@@ -22,13 +23,22 @@ export function remarkObsidianMd(
   });
 
   return (tree) => {
-    transformWikiLinks(tree, wikiLinks);
+    const blockIds = processBlockIds(tree);
+
+    transformWikiLinks(tree, {
+      ...wikiLinks,
+      blockIds: {
+        current: blockIds,
+        readNote: options.blockIds?.readNote,
+      },
+    });
     processHighlights(tree);
   };
 }
 
 export default remarkObsidianMd;
 
+export { remarkObsidianBlockIds } from "./block-id.js";
 export type {
   FrontmatterLink,
   GetFrontmatterOptions,
@@ -42,6 +52,7 @@ export {
   mapResolver,
 } from "./resolver.js";
 export type {
+  BlockIdsOptions,
   NoteMetadata,
   RemarkObsidianMdOptions,
   ResolvedTarget,
