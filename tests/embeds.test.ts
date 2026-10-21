@@ -162,6 +162,15 @@ describe("remarkObsidianEmbeds", () => {
     expect(json.match(/is-unresolved/g)).toHaveLength(1);
   });
 
+  it("leaves standard Markdown images alone", () => {
+    const tree = process("![alt](image.png)");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [{ type: "image", url: "image.png", alt: "alt" }],
+    });
+  });
+
   it("transforms Wiki Links, Callout bodies and Highlights in transcluded content", () => {
     const tree = process("![[Nested]]");
     const json = JSON.stringify(tree);
