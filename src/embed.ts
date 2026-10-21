@@ -195,7 +195,7 @@ function resolveEmbed(
       depth: state.depth + 1,
       visited: new Set([...state.visited, resolved.path]),
     },
-    parsed.subpaths,
+    parsed,
   );
 
   if (!children) return placeholder(parsed.target);
@@ -318,7 +318,7 @@ function parseEmbedded(
   markdown: string,
   context: EmbedContext,
   state: EmbedState,
-  subpaths: string[],
+  parsed: ParsedWikiLink,
 ): RootContent[] | undefined {
   const processor = unified().use(remarkParse);
   const input = context.processor.data() as Record<string, unknown>;
@@ -347,12 +347,12 @@ function parseEmbedded(
 
   const tree = processor.runSync(processor.parse(markdown)) as Root;
 
-  if (subpaths.length > 0) {
+  if (parsed.subpath) {
     const blockIds = processBlockIds(tree);
-    const last = subpaths.at(-1) ?? "";
-    const selected = last.startsWith("^")
-      ? selectBlock(blockIds, last.slice(1))
-      : selectSection(tree.children, subpaths);
+    const selected =
+      parsed.subpath.kind === "blockId"
+        ? selectBlock(blockIds, parsed.subpath.value)
+        : selectSection(tree.children, parsed.subpaths);
 
     if (!selected) return undefined;
 

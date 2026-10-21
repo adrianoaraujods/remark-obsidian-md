@@ -90,9 +90,9 @@ function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
   const parsed = parseWikiLink(linkText);
   if (!parsed) return value;
 
-  const { alias, subpaths, target } = parsed;
-  const label = alias || target || subpaths.at(-1) || "";
-  const anchor = anchorFor(subpaths, githubSlugger);
+  const { alias, target } = parsed;
+  const label = alias || target || parsed.subpaths.at(-1) || "";
+  const anchor = anchorFor(parsed.subpath, githubSlugger);
 
   const resolved = options.resolver.resolve(target);
   if (!resolved.exists || resolved.kind !== "note") return label;

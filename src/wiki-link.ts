@@ -26,6 +26,7 @@ import type {
 import {
   anchorFor,
   githubSlugger,
+  type ParsedSubpath,
   type ParsedWikiLink,
   parseWikiLink,
   slugify,
@@ -113,12 +114,12 @@ export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
     }
 
     const label = aliasOrTarget(parsed);
-    const anchor = anchorFor(parsed.subpaths, context.slugger);
+    const anchor = anchorFor(parsed.subpath, context.slugger);
 
     // A same-Note Subpath (`[[#Heading]]`) only ever needs the fragment.
     if (!parsed.target) {
       parent.children[index] = anchor
-        ? blockReferenceResolves(anchor, context)
+        ? blockReferenceResolves(parsed.subpath, context)
           ? {
               type: "link",
               url: `#${anchor}`,
@@ -134,7 +135,7 @@ export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
     if (
       resolved.exists &&
       resolved.kind === "note" &&
-      blockReferenceResolves(anchor, context, resolved.path)
+      blockReferenceResolves(parsed.subpath, context, resolved.path)
     ) {
       parent.children[index] = {
         type: "link",
@@ -158,13 +159,13 @@ export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
  * reader there is nothing to check against, so the link is kept.
  */
 function blockReferenceResolves(
-  anchor: string | undefined,
+  subpath: ParsedSubpath | undefined,
   context: WikiLinkContext,
   notePath?: string,
 ): boolean {
-  if (!anchor?.startsWith("^") || !context.blockIds) return true;
+  if (subpath?.kind !== "blockId" || !context.blockIds) return true;
 
-  const id = anchor.slice(1);
+  const id = subpath.value;
   if (notePath === undefined) return context.blockIds.current.has(id);
 
   const body = context.blockIds.readNote?.(notePath);

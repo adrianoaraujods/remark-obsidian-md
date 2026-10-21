@@ -2,10 +2,18 @@ import GithubSlugger from "github-slugger";
 
 export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/;
 
+/** A Subpath, structured: either a Heading name or a Block ID (without the `^`). */
+export type ParsedSubpath = {
+  kind: "heading" | "blockId";
+  value: string;
+};
+
 export type ParsedWikiLink = {
   target: string;
   alias: string | undefined;
   subpaths: string[];
+  /** The innermost Subpath: the part the anchor points at. */
+  subpath: ParsedSubpath | undefined;
   rawTarget: string;
 };
 
@@ -37,10 +45,18 @@ export function parseWikiLink(content: string): ParsedWikiLink | null {
   const cleanSubpaths = subpaths.map((part) => part.trim()).filter(Boolean);
   if (!cleanTarget && cleanSubpaths.length === 0) return null;
 
+  const last = cleanSubpaths.at(-1);
+
   return {
     target: cleanTarget,
     alias,
     subpaths: cleanSubpaths,
+    subpath: last
+      ? {
+          kind: last.startsWith("^") ? "blockId" : "heading",
+          value: last.startsWith("^") ? last.slice(1) : last,
+        }
+      : undefined,
     rawTarget,
   };
 }
@@ -51,17 +67,18 @@ export function githubSlugger(text: string): string {
 }
 
 /**
- * Turns Subpaths into a URL fragment. A nested chain links to its innermost
+ * Turns a Subpath into a URL fragment. A nested chain links to its innermost
  * heading, which is the heading that actually carries the anchor. Block
  * References (`#^id`) keep their marker verbatim.
  */
 export function anchorFor(
-  subpaths: string[],
+  subpath: ParsedSubpath | undefined,
   slugger: (text: string) => string,
 ): string | undefined {
-  const last = subpaths.at(-1);
-  if (!last) return undefined;
-  return last.startsWith("^") ? last : slugger(last);
+  if (!subpath) return undefined;
+  return subpath.kind === "blockId"
+    ? `^${subpath.value}`
+    : slugger(subpath.value);
 }
 
 /**
