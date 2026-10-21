@@ -1,4 +1,6 @@
 import GithubSlugger from "github-slugger";
+import { codes } from "micromark-util-symbol";
+import type { Code } from "micromark-util-types";
 
 export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/;
 
@@ -111,6 +113,24 @@ export function slugify(text: string): string {
       .replace(/^-+|-+$/g, "")
       .replace(/-+/g, "-")
   );
+}
+
+/** Whether a micromark code is a line ending (LF, CR or CRLF). */
+export function isLineEnding(code: Code): boolean {
+  return (
+    code === codes.carriageReturn ||
+    code === codes.carriageReturnLineFeed ||
+    code === codes.lineFeed
+  );
+}
+
+/** A plain object: not null, not an array, no class prototype. */
+export function isPlainObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 /** Concatenates a node's text content: its own value, or its children's. */

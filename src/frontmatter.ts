@@ -2,11 +2,13 @@ import type { Resolver } from "./types.js";
 import {
   anchorFor,
   githubSlugger,
+  isPlainObject,
   parseWikiLink,
   slugify,
   slugifyUrl,
   WIKI_LINK_REGEX,
 } from "./utils.js";
+import { aliasOrTarget } from "./wiki-link.js";
 
 export type FrontmatterLink = {
   url: string;
@@ -90,8 +92,8 @@ function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
   const parsed = parseWikiLink(linkText);
   if (!parsed) return value;
 
-  const { alias, target } = parsed;
-  const label = alias || target || parsed.subpaths.at(-1) || "";
+  const { target } = parsed;
+  const label = aliasOrTarget(parsed);
   const anchor = anchorFor(parsed.subpath, githubSlugger);
 
   const resolved = options.resolver.resolve(target);
@@ -104,10 +106,4 @@ function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
   });
 
   return { url: resolvedUrl, label } satisfies FrontmatterLink;
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== "object" || value === null) return false;
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
 }

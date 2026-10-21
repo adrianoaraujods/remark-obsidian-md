@@ -257,7 +257,8 @@ function literalizeLinkText(tree: Root): void {
   });
 }
 
-function aliasOrTarget(parsed: ParsedWikiLink) {
+/** The label a Wiki Link displays: its Alias, target name or Subpath. */
+export function aliasOrTarget(parsed: ParsedWikiLink) {
   return (
     parsed.alias || parsed.target || parsed.subpaths.at(-1) || parsed.rawTarget
   );
@@ -267,13 +268,10 @@ function literal(node: WikiLinkNode) {
   return { type: "text" as const, value: `[[${node.value}]]` };
 }
 
-export function configureWikiLinks(
-  processor: Processor,
-  options: WikiLinksPluginOptions,
+/** Builds the default WikiLinkContext from a plugin's options. */
+export function defaultWikiLinkContext(
+  options: WikiLinksPluginOptions = {},
 ): WikiLinkContext {
-  addExtension(processor, "micromarkExtensions", wikiLinkSyntax);
-  addExtension(processor, "fromMarkdownExtensions", wikiLinkFromMarkdown);
-
   return {
     resolver: options.resolver ?? mapResolver({}),
     slugger: options.slugger ?? githubSlugger,
@@ -281,6 +279,16 @@ export function configureWikiLinks(
     urlPrefix: options.urlPrefix ?? "",
     unresolvedStrategy: options.unresolvedStrategy ?? "link",
   };
+}
+
+export function configureWikiLinks(
+  processor: Processor,
+  options: WikiLinksPluginOptions,
+): WikiLinkContext {
+  addExtension(processor, "micromarkExtensions", wikiLinkSyntax);
+  addExtension(processor, "fromMarkdownExtensions", wikiLinkFromMarkdown);
+
+  return defaultWikiLinkContext(options);
 }
 
 export function remarkObsidianWikiLinks(

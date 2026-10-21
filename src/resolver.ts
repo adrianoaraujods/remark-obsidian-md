@@ -4,6 +4,7 @@ import { extname, join, relative, sep } from "node:path";
 import { load } from "js-yaml";
 
 import type { NoteMetadata, ResolvedTarget, Resolver } from "./types.js";
+import { isPlainObject } from "./utils.js";
 
 /**
  * How to pick a winner when several files share a basename or Alias.
@@ -134,14 +135,10 @@ function readFrontmatter(file: string): Record<string, unknown> {
 
   try {
     const data: unknown = load(match[1]);
-    return isRecord(data) ? data : {};
+    return isPlainObject(data) ? data : {};
   } catch {
     return {};
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function toStringArray(value: unknown): string[] {

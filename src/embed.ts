@@ -17,8 +17,8 @@ import { type Processor, type Transformer, unified } from "unified";
 import { SKIP, visit } from "unist-util-visit";
 
 import { type BlockIndex, processBlockIds } from "./block-id.js";
+import { addExtension } from "./extensions.js";
 import { transformHighlights } from "./highlights.js";
-import { mapResolver } from "./resolver.js";
 import type {
   EmbedNode,
   EmbedsOptions,
@@ -26,13 +26,9 @@ import type {
   ResolvedTarget,
   WikiLinkContext,
 } from "./types.js";
+import { type ParsedWikiLink, parseWikiLink, textOf } from "./utils.js";
 import {
-  githubSlugger,
-  type ParsedWikiLink,
-  parseWikiLink,
-  slugify,
-} from "./utils.js";
-import {
+  defaultWikiLinkContext,
   transformWikiLinks,
   wikiLinkFromMarkdown,
   wikiLinkSyntax,
@@ -176,10 +172,7 @@ function resolveEmbed(
 
   // The target resolved, but the cycle/depth guard stops here: mark the
   // placeholder neutrally so it is not mistaken for an unresolved target.
-  if (
-    state.depth >= context.maxDepth ||
-    state.visited.has(resolved.path)
-  ) {
+  if (state.depth >= context.maxDepth || state.visited.has(resolved.path)) {
     return placeholder(parsed.target, "is-embed-limit");
   }
 
@@ -450,19 +443,6 @@ function normalizeHeading(text: string): string {
   return text.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function textOf(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-
-  const { value, children } = node as {
-    value?: unknown;
-    children?: unknown[];
-  };
-
-  if (typeof value === "string") return value;
-  if (Array.isArray(children)) return children.map(textOf).join("");
-  return "";
-}
-
 function promoteLoneEmbeds(tree: Root): void {
   visit(tree, "paragraph", (node, index, parent) => {
     if (
@@ -502,9 +482,8 @@ export function configureEmbeds(
   processor: Processor,
   options: ConfigureEmbedsOptions,
 ): EmbedContext {
-  const data = processor.data() as Record<string, unknown>;
-  add(data, "micromarkExtensions", embedSyntax);
-  add(data, "fromMarkdownExtensions", embedFromMarkdown);
+  addExtension(processor, "micromarkExtensions", embedSyntax);
+  addExtension(processor, "fromMarkdownExtensions", embedFromMarkdown);
 
   return {
     processor,
@@ -518,22 +497,11 @@ export function remarkObsidianEmbeds(
   this: Processor,
   options: EmbedsPluginOptions = {},
 ): Transformer<Root> {
-  const wikiLinks: WikiLinkContext = {
-    resolver: options.resolver ?? mapResolver({}),
-    slugger: options.slugger ?? githubSlugger,
-    slugify: options.slugify ?? slugify,
-    urlPrefix: options.urlPrefix ?? "",
-    unresolvedStrategy: options.unresolvedStrategy ?? "link",
-  };
+  const wikiLinks = defaultWikiLinkContext(options);
 
   const context = configureEmbeds(this, { ...options, wikiLinks });
 
   return (tree) => {
     transformEmbeds(tree, context);
   };
-}
-
-function add(data: Record<string, unknown>, field: string, value: unknown) {
-  if (!data[field]) data[field] = [];
-  (data[field] as unknown[]).push(value);
 }
