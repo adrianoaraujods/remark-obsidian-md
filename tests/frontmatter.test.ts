@@ -53,6 +53,12 @@ describe("getFrontmatter", () => {
     });
   });
 
+  it("keeps embed syntax unchanged: frontmatter stories only cover Wiki Links", () => {
+    expect(getFrontmatter({ embed: "![[Wiki Link]]" }, { resolver })).toEqual({
+      embed: "![[Wiki Link]]",
+    });
+  });
+
   it("resolves an url into a link object", () => {
     expect(
       getFrontmatter({ site: "https://example.com" }, { resolver }),

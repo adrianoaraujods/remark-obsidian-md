@@ -75,7 +75,7 @@ function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
   // surrounding text or extra links is silently discarded. The wiki-link
   // branch forbids `]` inside the brackets so a string with several `[[...]]`
   // is not mistaken for one link.
-  const isWholeLink = /^(?:!?\[\[[^\]]*\]\]|https?:\/\/\S+)$/.test(trimmed);
+  const isWholeLink = /^(?:\[\[[^\]]*\]\]|https?:\/\/\S+)$/.test(trimmed);
   if (!isWholeLink) return value;
 
   const urlMatch = trimmed.match(/^https?:\/\/\S+$/);
