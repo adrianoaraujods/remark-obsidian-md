@@ -14,7 +14,9 @@ import type {
 } from "micromark-util-types";
 import type { Processor, Transformer } from "unified";
 import { visit } from "unist-util-visit";
+
 import { scanBlockIds } from "./block-id.js";
+import { addExtension } from "./extensions.js";
 import { mapResolver } from "./resolver.js";
 import type {
   WikiLinkContext,
@@ -206,9 +208,8 @@ export function configureWikiLinks(
   processor: Processor,
   options: WikiLinksPluginOptions,
 ): WikiLinkContext {
-  const data = processor.data() as Record<string, unknown>;
-  add(data, "micromarkExtensions", wikiLinkSyntax);
-  add(data, "fromMarkdownExtensions", wikiLinkFromMarkdown);
+  addExtension(processor, "micromarkExtensions", wikiLinkSyntax);
+  addExtension(processor, "fromMarkdownExtensions", wikiLinkFromMarkdown);
 
   return {
     resolver: options.resolver ?? mapResolver({}),
@@ -228,9 +229,4 @@ export function remarkObsidianWikiLinks(
   return (tree) => {
     transformWikiLinks(tree, context);
   };
-}
-
-function add(data: Record<string, unknown>, field: string, value: unknown) {
-  if (!data[field]) data[field] = [];
-  (data[field] as unknown[]).push(value);
 }

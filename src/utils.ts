@@ -1,7 +1,6 @@
 import GithubSlugger from "github-slugger";
 
 export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/;
-export const HIGHLIGHT_REGEX = /==(.*?)==/;
 
 export type ParsedWikiLink = {
   target: string;

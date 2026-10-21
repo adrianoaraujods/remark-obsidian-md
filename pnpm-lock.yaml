@@ -14,9 +14,6 @@ importers:
       js-yaml:
         specifier: ^5.5.0
         version: 5.5.0
-      mdast-util-find-and-replace:
-        specifier: 3.0.2
-        version: 3.0.2
       mdast-util-from-markdown:
         specifier: ^2.1.0
         version: 2.1.0(supports-color@7.2.0)

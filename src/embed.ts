@@ -17,7 +17,7 @@ import { type Processor, type Transformer, unified } from "unified";
 import { SKIP, visit } from "unist-util-visit";
 
 import { type BlockIndex, processBlockIds } from "./block-id.js";
-import { processHighlights } from "./highlights.js";
+import { transformHighlights } from "./highlights.js";
 import { mapResolver } from "./resolver.js";
 import type {
   EmbedNode,
@@ -361,7 +361,7 @@ function parseEmbedded(
 
   transformWikiLinks(tree, context.wikiLinks);
   transformEmbeds(tree, context, state);
-  processHighlights(tree);
+  transformHighlights(tree);
 
   return tree.children;
 }

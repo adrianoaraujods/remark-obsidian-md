@@ -3,15 +3,17 @@ import type { Processor, Transformer } from "unified";
 
 import { processBlockIds } from "./block-id.js";
 import { transformCallouts } from "./callouts.js";
+import { configureComments } from "./comments.js";
 import { configureEmbeds, transformEmbeds } from "./embed.js";
-import { processHighlights } from "./highlights.js";
+import { configureFootnotes } from "./footnotes.js";
+import { configureHighlights } from "./highlights.js";
 import type { RemarkObsidianMdOptions } from "./types.js";
 import { configureWikiLinks, transformWikiLinks } from "./wiki-link.js";
 
 /**
  * Composed plugin for the common case: renders Callouts, resolves Wiki Links,
- * transcludes Embeds and renders Highlights. Per-feature plugins can be
- * composed by hand instead.
+ * transcludes Embeds and renders Highlights, Comments and inline Footnotes.
+ * Per-feature plugins can be composed by hand instead.
  */
 export function remarkObsidianMd(
   this: Processor,
@@ -24,6 +26,9 @@ export function remarkObsidianMd(
     urlPrefix: options.urlPrefix,
     unresolvedStrategy: options.wikiLinks?.unresolvedStrategy,
   });
+  const comments = configureComments(this);
+  const highlights = configureHighlights(this);
+  const footnotes = configureFootnotes(this);
 
   const embeds = configureEmbeds(this, {
     readNote: options.embeds?.readNote,
@@ -36,6 +41,10 @@ export function remarkObsidianMd(
     transformEmbeds(tree, embeds);
     transformCallouts(tree, options.callouts);
 
+    // Comments run before the remaining transforms so an unclosed `%%` hides
+    // the rest of the Note, including anything that follows it.
+    comments(tree);
+
     const blockIds = processBlockIds(tree);
 
     transformWikiLinks(tree, {
@@ -45,7 +54,9 @@ export function remarkObsidianMd(
         readNote: options.blockIds?.readNote ?? options.embeds?.readNote,
       },
     });
-    processHighlights(tree);
+
+    highlights(tree);
+    footnotes(tree);
   };
 }
 
@@ -53,12 +64,15 @@ export default remarkObsidianMd;
 
 export { remarkObsidianBlockIds } from "./block-id.js";
 export { remarkObsidianCallouts } from "./callouts.js";
+export { remarkObsidianComments } from "./comments.js";
 export { remarkObsidianEmbeds } from "./embed.js";
+export { remarkObsidianFootnotes } from "./footnotes.js";
 export type {
   FrontmatterLink,
   GetFrontmatterOptions,
 } from "./frontmatter.js";
 export { getFrontmatter } from "./frontmatter.js";
+export { remarkObsidianHighlights } from "./highlights.js";
 export {
   type DuplicatePolicy,
   type FilesystemResolverOptions,
