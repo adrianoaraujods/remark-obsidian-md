@@ -76,7 +76,7 @@ describe("processWikiLinks", async () => {
     const aliasedLink = links.find((l) => l.url === "/folder/nested");
 
     expect(aliasedLink).toBeDefined();
-    expect((aliasedLink?.children[0] as Text).value).toBe("Nested Wiki Link");
+    expect((aliasedLink as Link).children[0]?.value).toBe("Nested Wiki Link");
   });
 
   it("should transform links inside Bold/Strong", () => {
