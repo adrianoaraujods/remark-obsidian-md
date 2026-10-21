@@ -17,6 +17,7 @@ import type { Processor, Transformer } from "unified";
 import { visit } from "unist-util-visit";
 
 import { addExtension } from "./extensions.js";
+import { isLineEnding } from "./utils.js";
 
 declare module "micromark-util-types" {
   interface TokenTypeMap {
@@ -94,14 +95,6 @@ function tokenizeHighlight(
     }
     return inside(code);
   }
-}
-
-function isLineEnding(code: Code): boolean {
-  return (
-    code === codes.carriageReturn ||
-    code === codes.carriageReturnLineFeed ||
-    code === codes.lineFeed
-  );
 }
 
 export const highlightFromMarkdown: FromMarkdownExtension = {

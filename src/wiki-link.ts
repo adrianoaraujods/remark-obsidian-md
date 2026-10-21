@@ -26,10 +26,12 @@ import type {
 import {
   anchorFor,
   githubSlugger,
+  type ParsedSubpath,
   type ParsedWikiLink,
   parseWikiLink,
   slugify,
   slugifyUrl,
+  textOf,
 } from "./utils.js";
 
 /**
@@ -103,6 +105,12 @@ export const wikiLinkFromMarkdown: FromMarkdownExtension = {
 export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
   literalizeLinkText(tree);
 
+  let currentAnchors: Set<string> | undefined;
+  const anchorsOf = (): Set<string> => {
+    currentAnchors ??= headingAnchors(tree, context.slugger);
+    return currentAnchors;
+  };
+
   visit(tree, "wikiLink", (node, index, parent) => {
     if (index === undefined || !parent) return;
 
@@ -113,12 +121,12 @@ export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
     }
 
     const label = aliasOrTarget(parsed);
-    const anchor = anchorFor(parsed.subpaths, context.slugger);
+    const anchor = anchorFor(parsed.subpath, context.slugger);
 
     // A same-Note Subpath (`[[#Heading]]`) only ever needs the fragment.
     if (!parsed.target) {
-      parent.children[index] = anchor
-        ? blockReferenceResolves(anchor, context)
+      parent.children[index] = parsed.subpath
+        ? subpathResolves(parsed.subpath, context, undefined, anchorsOf)
           ? {
               type: "link",
               url: `#${anchor}`,
@@ -134,7 +142,7 @@ export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
     if (
       resolved.exists &&
       resolved.kind === "note" &&
-      blockReferenceResolves(anchor, context, resolved.path)
+      subpathResolves(parsed.subpath, context, resolved.path, anchorsOf)
     ) {
       parent.children[index] = {
         type: "link",
@@ -153,22 +161,77 @@ export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
 }
 
 /**
- * A Block Reference only resolves when its target Block can be found: in the
- * current Note's index, or in another Note's markdown. Without an index or a
- * reader there is nothing to check against, so the link is kept.
+ * A Subpath only resolves when its target can be found: a Heading in the
+ * current Note's tree, or a Heading or Block ID in the target Note's
+ * markdown. Without an index or a reader there is nothing to check
+ * against, so the link is kept.
  */
-function blockReferenceResolves(
-  anchor: string | undefined,
+function subpathResolves(
+  subpath: ParsedSubpath | undefined,
   context: WikiLinkContext,
-  notePath?: string,
+  notePath: string | undefined,
+  currentAnchors: () => Set<string>,
 ): boolean {
-  if (!anchor?.startsWith("^") || !context.blockIds) return true;
+  if (!subpath) return true;
 
-  const id = anchor.slice(1);
-  if (notePath === undefined) return context.blockIds.current.has(id);
+  if (subpath.kind === "blockId") {
+    if (!context.blockIds) return true;
 
-  const body = context.blockIds.readNote?.(notePath);
-  return body === undefined || scanBlockIds(body).has(id);
+    if (notePath === undefined) {
+      return context.blockIds.current.has(subpath.value);
+    }
+
+    const body = context.blockIds.readNote?.(notePath);
+    return body === undefined || scanBlockIds(body).has(subpath.value);
+  }
+
+  // A Heading Subpath validates against the current tree, or against the
+  // target Note's markdown when a reader is available.
+  if (notePath === undefined) {
+    return currentAnchors().has(context.slugger(subpath.value));
+  }
+
+  const body = context.blockIds?.readNote?.(notePath);
+  return (
+    body === undefined ||
+    scanHeadingAnchors(body, context.slugger).has(
+      context.slugger(subpath.value),
+    )
+  );
+}
+
+/** Collects the heading anchors of the current Note's tree. */
+function headingAnchors(
+  tree: Root,
+  slugger: (text: string) => string,
+): Set<string> {
+  const anchors = new Set<string>();
+  visit(tree, "heading", (node) => {
+    anchors.add(slugger(textOf(node)));
+  });
+  return anchors;
+}
+
+const HEADING_LINE = /^#{1,6}\s+(.+?)\s*$/;
+
+/**
+ * Collects a Note's heading anchors from raw markdown, for cross-Note
+ * Subpaths.
+ * ponytail: ATX headings only; setext headings (`Title` over `===`) need a
+ * full parse — add when a Vault actually uses them.
+ */
+function scanHeadingAnchors(
+  markdown: string,
+  slugger: (text: string) => string,
+): Set<string> {
+  const anchors = new Set<string>();
+
+  for (const line of markdown.split(/\r?\n/)) {
+    const match = HEADING_LINE.exec(line);
+    if (match?.[1]) anchors.add(slugger(match[1]));
+  }
+
+  return anchors;
 }
 
 function unresolved(label: string, context: WikiLinkContext) {
@@ -194,7 +257,8 @@ function literalizeLinkText(tree: Root): void {
   });
 }
 
-function aliasOrTarget(parsed: ParsedWikiLink) {
+/** The label a Wiki Link displays: its Alias, target name or Subpath. */
+export function aliasOrTarget(parsed: ParsedWikiLink) {
   return (
     parsed.alias || parsed.target || parsed.subpaths.at(-1) || parsed.rawTarget
   );
@@ -204,13 +268,10 @@ function literal(node: WikiLinkNode) {
   return { type: "text" as const, value: `[[${node.value}]]` };
 }
 
-export function configureWikiLinks(
-  processor: Processor,
-  options: WikiLinksPluginOptions,
+/** Builds the default WikiLinkContext from a plugin's options. */
+export function defaultWikiLinkContext(
+  options: WikiLinksPluginOptions = {},
 ): WikiLinkContext {
-  addExtension(processor, "micromarkExtensions", wikiLinkSyntax);
-  addExtension(processor, "fromMarkdownExtensions", wikiLinkFromMarkdown);
-
   return {
     resolver: options.resolver ?? mapResolver({}),
     slugger: options.slugger ?? githubSlugger,
@@ -218,6 +279,16 @@ export function configureWikiLinks(
     urlPrefix: options.urlPrefix ?? "",
     unresolvedStrategy: options.unresolvedStrategy ?? "link",
   };
+}
+
+export function configureWikiLinks(
+  processor: Processor,
+  options: WikiLinksPluginOptions,
+): WikiLinkContext {
+  addExtension(processor, "micromarkExtensions", wikiLinkSyntax);
+  addExtension(processor, "fromMarkdownExtensions", wikiLinkFromMarkdown);
+
+  return defaultWikiLinkContext(options);
 }
 
 export function remarkObsidianWikiLinks(

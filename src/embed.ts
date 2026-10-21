@@ -17,8 +17,8 @@ import { type Processor, type Transformer, unified } from "unified";
 import { SKIP, visit } from "unist-util-visit";
 
 import { type BlockIndex, processBlockIds } from "./block-id.js";
+import { addExtension } from "./extensions.js";
 import { transformHighlights } from "./highlights.js";
-import { mapResolver } from "./resolver.js";
 import type {
   EmbedNode,
   EmbedsOptions,
@@ -26,13 +26,9 @@ import type {
   ResolvedTarget,
   WikiLinkContext,
 } from "./types.js";
+import { type ParsedWikiLink, parseWikiLink, textOf } from "./utils.js";
 import {
-  githubSlugger,
-  type ParsedWikiLink,
-  parseWikiLink,
-  slugify,
-} from "./utils.js";
-import {
+  defaultWikiLinkContext,
   transformWikiLinks,
   wikiLinkFromMarkdown,
   wikiLinkSyntax,
@@ -136,9 +132,9 @@ const PHRASING_PARENTS = new Set([
 ]);
 
 /**
- * Expands every Embed into its target's parsed content. Whole-Note targets
- * are dispatched here; partial Embeds (#10) and Assets (#11) extend
- * `resolveEmbed` without touching the transclusion engine.
+ * Expands every Embed into its target's parsed content. Whole-Note, partial
+ * (heading/block) and Asset targets are all dispatched through
+ * `resolveEmbed`.
  */
 export function transformEmbeds(
   tree: Root,
@@ -174,17 +170,15 @@ function resolveEmbed(
     return assetEmbed(parsed, resolved);
   }
 
-  // Aliases on Notes belong to a later ticket: keep the source literal until
-  // their transform understands them.
-  if (parsed.alias) return literalEmbed(node);
+  // The target resolved, but the cycle/depth guard stops here: mark the
+  // placeholder neutrally so it is not mistaken for an unresolved target.
+  if (state.depth >= context.maxDepth || state.visited.has(resolved.path)) {
+    return placeholder(parsed.target, "is-embed-limit");
+  }
 
   const content = context.readNote(resolved.path);
 
-  if (
-    content === undefined ||
-    state.depth >= context.maxDepth ||
-    state.visited.has(resolved.path)
-  ) {
+  if (content === undefined) {
     return placeholder(parsed.target);
   }
 
@@ -195,7 +189,7 @@ function resolveEmbed(
       depth: state.depth + 1,
       visited: new Set([...state.visited, resolved.path]),
     },
-    parsed.subpaths,
+    parsed,
   );
 
   if (!children) return placeholder(parsed.target);
@@ -211,11 +205,11 @@ function resolveEmbed(
   };
 }
 
-function placeholder(target: string): EmbedNode {
+function placeholder(target: string, marker = "is-unresolved"): EmbedNode {
   return {
     type: "embed",
     data: {
-      hProperties: { className: ["internal-embed", "is-unresolved"] },
+      hProperties: { className: ["internal-embed", marker] },
     },
     children: [{ type: "text", value: target }],
   };
@@ -297,6 +291,7 @@ function assetEmbed(
       type: "link",
       url: asset.path,
       children: [{ type: "text", value: parsed.alias || parsed.target }],
+      data: { hProperties: { className: ["internal-embed"] } },
     };
   }
 
@@ -318,14 +313,14 @@ function parseEmbedded(
   markdown: string,
   context: EmbedContext,
   state: EmbedState,
-  subpaths: string[],
+  parsed: ParsedWikiLink,
 ): RootContent[] | undefined {
   const processor = unified().use(remarkParse);
   const input = context.processor.data() as Record<string, unknown>;
   const data = processor.data() as Record<string, unknown>;
 
   // Reuse every inline tokenizer available to the host pipeline (Wiki Link,
-  // Embed, and later Comments/Footnotes).
+  // Embed, Comment, Footnote).
   const micromarkExtensions = [
     ...((input.micromarkExtensions as unknown[] | undefined) ?? []),
   ];
@@ -334,7 +329,7 @@ function parseEmbedded(
   ];
 
   // Standalone use has no Wiki Link tokenizer on the host pipeline yet, but
-  // transcluded content must still resolve its Wiki Links.
+  // embedded content must still resolve its Wiki Links.
   if (!micromarkExtensions.includes(wikiLinkSyntax)) {
     micromarkExtensions.push(wikiLinkSyntax);
   }
@@ -347,12 +342,12 @@ function parseEmbedded(
 
   const tree = processor.runSync(processor.parse(markdown)) as Root;
 
-  if (subpaths.length > 0) {
+  if (parsed.subpath) {
     const blockIds = processBlockIds(tree);
-    const last = subpaths.at(-1) ?? "";
-    const selected = last.startsWith("^")
-      ? selectBlock(blockIds, last.slice(1))
-      : selectSection(tree.children, subpaths);
+    const selected =
+      parsed.subpath.kind === "blockId"
+        ? selectBlock(blockIds, parsed.subpath.value)
+        : selectSection(tree.children, parsed.subpaths);
 
     if (!selected) return undefined;
 
@@ -448,19 +443,6 @@ function normalizeHeading(text: string): string {
   return text.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function textOf(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-
-  const { value, children } = node as {
-    value?: unknown;
-    children?: unknown[];
-  };
-
-  if (typeof value === "string") return value;
-  if (Array.isArray(children)) return children.map(textOf).join("");
-  return "";
-}
-
 function promoteLoneEmbeds(tree: Root): void {
   visit(tree, "paragraph", (node, index, parent) => {
     if (
@@ -500,9 +482,8 @@ export function configureEmbeds(
   processor: Processor,
   options: ConfigureEmbedsOptions,
 ): EmbedContext {
-  const data = processor.data() as Record<string, unknown>;
-  add(data, "micromarkExtensions", embedSyntax);
-  add(data, "fromMarkdownExtensions", embedFromMarkdown);
+  addExtension(processor, "micromarkExtensions", embedSyntax);
+  addExtension(processor, "fromMarkdownExtensions", embedFromMarkdown);
 
   return {
     processor,
@@ -516,22 +497,11 @@ export function remarkObsidianEmbeds(
   this: Processor,
   options: EmbedsPluginOptions = {},
 ): Transformer<Root> {
-  const wikiLinks: WikiLinkContext = {
-    resolver: options.resolver ?? mapResolver({}),
-    slugger: options.slugger ?? githubSlugger,
-    slugify: options.slugify ?? slugify,
-    urlPrefix: options.urlPrefix ?? "",
-    unresolvedStrategy: options.unresolvedStrategy ?? "link",
-  };
+  const wikiLinks = defaultWikiLinkContext(options);
 
   const context = configureEmbeds(this, { ...options, wikiLinks });
 
   return (tree) => {
     transformEmbeds(tree, context);
   };
-}
-
-function add(data: Record<string, unknown>, field: string, value: unknown) {
-  if (!data[field]) data[field] = [];
-  (data[field] as unknown[]).push(value);
 }

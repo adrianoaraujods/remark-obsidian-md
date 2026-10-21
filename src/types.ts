@@ -36,7 +36,6 @@ export type EmbedsOptions = {
 
 export type RemarkObsidianMdOptions = {
   resolver?: Resolver | undefined;
-  slugger?: ((text: string) => string) | undefined;
   slugify?: ((text: string) => string) | undefined;
   urlPrefix?: string | undefined;
   wikiLinks?: WikiLinksOptions | undefined;
@@ -86,7 +85,7 @@ export interface WikiLinkNode extends Literal {
 }
 
 /**
- * Transcluded content. `value` holds the raw `![[…]]` inner text only until
+ * Embedded content. `value` holds the raw `![[…]]` inner text only until
  * the Embed transform turns it into a container with parsed children.
  */
 export interface EmbedNode extends Parent {

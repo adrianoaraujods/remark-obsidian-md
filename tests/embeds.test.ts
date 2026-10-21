@@ -108,6 +108,24 @@ describe("remarkObsidianEmbeds", () => {
     });
   });
 
+  it("ignores an Alias on a Note Embed and transcludes the Note", () => {
+    const tree = process("![[A|Ignored Alias]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      data: {
+        hName: "div",
+        hProperties: { className: ["internal-embed"] },
+      },
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Alpha content" }],
+        },
+      ],
+    });
+  });
+
   it("promotes a lone Embed to block position as a div", () => {
     const tree = process("![[A]]");
 
@@ -167,7 +185,8 @@ describe("remarkObsidianEmbeds", () => {
 
     expect(json.match(/Cycle A body/g)).toHaveLength(1);
     expect(json.match(/Cycle B body/g)).toHaveLength(1);
-    expect(json.match(/is-unresolved/g)).toHaveLength(1);
+    expect(json.match(/is-embed-limit/g)).toHaveLength(1);
+    expect(json).not.toContain("is-unresolved");
   });
 
   it("stops transcluding at the depth limit", () => {
@@ -178,7 +197,8 @@ describe("remarkObsidianEmbeds", () => {
 
     expect(json).toContain("Chain B body");
     expect(json).not.toContain("Chain C body");
-    expect(json.match(/is-unresolved/g)).toHaveLength(1);
+    expect(json.match(/is-embed-limit/g)).toHaveLength(1);
+    expect(json).not.toContain("is-unresolved");
   });
 
   it("defaults the depth limit to 4", () => {
@@ -187,7 +207,8 @@ describe("remarkObsidianEmbeds", () => {
 
     expect(json).toContain("Chain D body");
     expect(json).not.toContain("Chain E body");
-    expect(json.match(/is-unresolved/g)).toHaveLength(1);
+    expect(json.match(/is-embed-limit/g)).toHaveLength(1);
+    expect(json).not.toContain("is-unresolved");
   });
 
   it("leaves standard Markdown images alone", () => {
@@ -501,7 +522,7 @@ describe("remarkObsidianEmbeds (Assets)", () => {
     });
   });
 
-  it("falls back to a link for an unsupported Asset type", () => {
+  it("falls back to a link carrying the Embed container class for an unsupported Asset type", () => {
     const tree = processAssets("![[Doc.pdf]]");
 
     expect(tree.children[0]).toMatchObject({
@@ -511,6 +532,7 @@ describe("remarkObsidianEmbeds (Assets)", () => {
           type: "link",
           url: "/Doc.pdf",
           children: [{ type: "text", value: "Doc.pdf" }],
+          data: { hProperties: { className: ["internal-embed"] } },
         },
       ],
     });
@@ -526,6 +548,7 @@ describe("remarkObsidianEmbeds (Assets)", () => {
           type: "link",
           url: "/Doc.pdf",
           children: [{ type: "text", value: "The doc" }],
+          data: { hProperties: { className: ["internal-embed"] } },
         },
       ],
     });

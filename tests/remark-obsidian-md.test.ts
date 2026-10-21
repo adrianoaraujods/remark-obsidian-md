@@ -136,15 +136,31 @@ describe("remarkObsidianMd", () => {
   });
 
   it("links a same-Note heading Subpath within the current Note", () => {
-    const tree = process("[[#Some Heading]]");
+    const tree = process("# Some Heading\n\n[[#Some Heading]]");
 
-    expect(tree.children[0]).toMatchObject({
+    expect(tree.children[1]).toMatchObject({
       type: "paragraph",
       children: [
         {
           type: "link",
           url: "#some-heading",
           children: [{ type: "text", value: "Some Heading" }],
+        },
+      ],
+    });
+  });
+
+  it("renders a same-Note heading Subpath without a matching heading as unresolved", () => {
+    const tree = process("# Some Heading\n\n[[#Missing Heading]]");
+
+    expect(tree.children[1]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "link",
+          url: "#",
+          children: [{ type: "text", value: "Missing Heading" }],
+          data: { hProperties: { className: "is-unresolved" } },
         },
       ],
     });
@@ -181,10 +197,10 @@ describe("remarkObsidianMd", () => {
 
   it("resolves a nested heading chain to the innermost heading", () => {
     const tree = process(
-      "[[Nested#First Heading#Second Heading]] and [[#A#B]]",
+      "# A\n\n## B\n\n[[Nested#First Heading#Second Heading]] and [[#A#B]]",
     );
 
-    expect(tree.children[0]).toMatchObject({
+    expect(tree.children[2]).toMatchObject({
       children: [
         { type: "link", url: "/folder/nested#second-heading" },
         { type: "text", value: " and " },
@@ -204,7 +220,9 @@ describe("remarkObsidianMd", () => {
       children: [{ type: "link", url: "/wiki-link#some-heading" }],
     });
     expect(
-      process(markdown, { slugger: (text) => text.toUpperCase() }).children[0],
+      process(markdown, {
+        wikiLinks: { slugger: (text) => text.toUpperCase() },
+      }).children[0],
     ).toMatchObject({
       children: [{ type: "link", url: "/wiki-link#SOME HEADING!" }],
     });
@@ -267,6 +285,71 @@ describe("remarkObsidianMd", () => {
               data: { hProperties: { className: "is-unresolved" } },
             },
           ],
+        },
+      ],
+    });
+  });
+});
+
+describe("Subpath validation", () => {
+  const bodies: Record<string, string> = {
+    "/Wiki Link.md": "Intro\n\n# Real Heading\n\nBody",
+  };
+
+  const readNote = (path: string): string | undefined => bodies[path];
+
+  it("marks a cross-Note heading Subpath unresolved when the target lacks the heading", () => {
+    const tree = process("[[Wiki Link#No Such Heading]]", {
+      embeds: { readNote },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      children: [
+        {
+          type: "link",
+          url: "#",
+          children: [{ type: "text", value: "Wiki Link" }],
+          data: { hProperties: { className: "is-unresolved" } },
+        },
+      ],
+    });
+  });
+
+  it("links a cross-Note heading Subpath when the target has the heading", () => {
+    const tree = process("[[Wiki Link#Real Heading]]", {
+      embeds: { readNote },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      children: [
+        {
+          type: "link",
+          url: "/wiki-link#real-heading",
+          children: [{ type: "text", value: "Wiki Link" }],
+        },
+      ],
+    });
+  });
+
+  it("keeps a cross-Note heading Subpath when no reader is configured", () => {
+    const tree = process("[[Wiki Link#Any Heading]]");
+
+    expect(tree.children[0]).toMatchObject({
+      children: [{ type: "link", url: "/wiki-link#any-heading" }],
+    });
+  });
+
+  it("validates a same-Note heading Subpath against the current Note", () => {
+    const tree = process("# Real Heading\n\n[[#Real Heading]] [[#Missing]]");
+
+    expect(tree.children[1]).toMatchObject({
+      children: [
+        { type: "link", url: "#real-heading" },
+        { type: "text", value: " " },
+        {
+          type: "link",
+          url: "#",
+          data: { hProperties: { className: "is-unresolved" } },
         },
       ],
     });

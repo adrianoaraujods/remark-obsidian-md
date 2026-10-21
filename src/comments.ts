@@ -17,6 +17,7 @@ import type { Processor, Transformer } from "unified";
 import { SKIP, visit } from "unist-util-visit";
 
 import { addExtension } from "./extensions.js";
+import { isLineEnding } from "./utils.js";
 
 declare module "micromark-util-types" {
   interface TokenTypeMap {
@@ -113,14 +114,6 @@ function tokenizeComment(
   }
 }
 
-function isLineEnding(code: Code): boolean {
-  return (
-    code === codes.carriageReturn ||
-    code === codes.carriageReturnLineFeed ||
-    code === codes.lineFeed
-  );
-}
-
 export const commentFromMarkdown: FromMarkdownExtension = {
   enter: {
     obsidianComment(this: CompileContext, token: Token) {
@@ -161,7 +154,7 @@ export function remarkObsidianComments(this: Processor): Transformer<Root> {
 
 /**
  * Comments are processed per document scope: the Note itself, and separately
- * every Embed's transcluded content, whose positions come from another
+ * every Embed's embedded content, whose positions come from another
  * document and must not be mixed with the outer offsets.
  */
 function processComments(parent: Parent): void {

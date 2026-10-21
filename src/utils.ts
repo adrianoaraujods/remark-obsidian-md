@@ -1,11 +1,21 @@
 import GithubSlugger from "github-slugger";
+import { codes } from "micromark-util-symbol";
+import type { Code } from "micromark-util-types";
 
 export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/;
+
+/** A Subpath, structured: either a Heading name or a Block ID (without the `^`). */
+export type ParsedSubpath = {
+  kind: "heading" | "blockId";
+  value: string;
+};
 
 export type ParsedWikiLink = {
   target: string;
   alias: string | undefined;
   subpaths: string[];
+  /** The innermost Subpath: the part the anchor points at. */
+  subpath: ParsedSubpath | undefined;
   rawTarget: string;
 };
 
@@ -37,10 +47,18 @@ export function parseWikiLink(content: string): ParsedWikiLink | null {
   const cleanSubpaths = subpaths.map((part) => part.trim()).filter(Boolean);
   if (!cleanTarget && cleanSubpaths.length === 0) return null;
 
+  const last = cleanSubpaths.at(-1);
+
   return {
     target: cleanTarget,
     alias,
     subpaths: cleanSubpaths,
+    subpath: last
+      ? {
+          kind: last.startsWith("^") ? "blockId" : "heading",
+          value: last.startsWith("^") ? last.slice(1) : last,
+        }
+      : undefined,
     rawTarget,
   };
 }
@@ -51,17 +69,18 @@ export function githubSlugger(text: string): string {
 }
 
 /**
- * Turns Subpaths into a URL fragment. A nested chain links to its innermost
+ * Turns a Subpath into a URL fragment. A nested chain links to its innermost
  * heading, which is the heading that actually carries the anchor. Block
  * References (`#^id`) keep their marker verbatim.
  */
 export function anchorFor(
-  subpaths: string[],
+  subpath: ParsedSubpath | undefined,
   slugger: (text: string) => string,
 ): string | undefined {
-  const last = subpaths.at(-1);
-  if (!last) return undefined;
-  return last.startsWith("^") ? last : slugger(last);
+  if (!subpath) return undefined;
+  return subpath.kind === "blockId"
+    ? `^${subpath.value}`
+    : slugger(subpath.value);
 }
 
 /**
@@ -94,6 +113,38 @@ export function slugify(text: string): string {
       .replace(/^-+|-+$/g, "")
       .replace(/-+/g, "-")
   );
+}
+
+/** Whether a micromark code is a line ending (LF, CR or CRLF). */
+export function isLineEnding(code: Code): boolean {
+  return (
+    code === codes.carriageReturn ||
+    code === codes.carriageReturnLineFeed ||
+    code === codes.lineFeed
+  );
+}
+
+/** A plain object: not null, not an array, no class prototype. */
+export function isPlainObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+/** Concatenates a node's text content: its own value, or its children's. */
+export function textOf(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+
+  const { value, children } = node as {
+    value?: unknown;
+    children?: unknown[];
+  };
+
+  if (typeof value === "string") return value;
+  if (Array.isArray(children)) return children.map(textOf).join("");
+  return "";
 }
 
 /**

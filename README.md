@@ -88,7 +88,7 @@ import remarkObsidianMd, {
 Pass a **Resolver** so wiki links and embeds can find their targets. Two are built in:
 
 - `filesystemResolver(vault, { duplicatePolicy })` — scans a Vault directory once (lazily, cached). Notes are matched by path, basename and Alias; Assets by path and filename. Matching is case-insensitive, the `.md` extension is optional, and duplicate basenames resolve **root-wins** by default, matching Obsidian.
-- `mapResolver(map)` — an in-memory `{ "Note": { path, title?, aliases?, cssclasses? } }` map, for when your content already lives somewhere else (a CMS, an in-memory index, tests).
+- `mapResolver(map)` — an in-memory `{ "Note": { path, title?, aliases?, cssclasses? } }` map, for when your content already lives somewhere else (a CMS, an in-memory index, tests). Duplicate basenames resolve root-wins, like the filesystem Resolver.
 
 Without a `resolver`, every target is unresolved and links render with the unresolved strategy (see [Options](#options)).
 
@@ -104,10 +104,9 @@ import type { RemarkObsidianMdOptions } from "remark-obsidian-md";
 | :--------------------------------- | :------------------------------------------ | :------------------- | :------------------------------------------------------------------------------------------------------------ |
 | `resolver`                         | `Resolver`                                 | empty map            | Resolves Link Targets: `filesystemResolver(vault)` or `mapResolver(map)`. Without one, nothing resolves.       |
 | `slugify`                          | `(text: string) => string`                 | built-in slugify     | Converts file paths to URL segments.                                                                          |
-| `slugger`                          | `(text: string) => string`                 | GitHub-style slugs    | Slugs heading anchors.                                                                                         |
 | `urlPrefix`                        | `string`                                   | `""`                 | Prepended to every generated URL (e.g. `"/docs"`).                                                             |
 | `wikiLinks.unresolvedStrategy`     | `"link" \| "plain"`                         | `"link"`             | `"link"` renders `<a class="is-unresolved">`; `"plain"` renders the label as text.                             |
-| `wikiLinks.slugger`                | `(text: string) => string`                 | top-level `slugger`  | Per-feature override of the anchor slugger.                                                                    |
+| `wikiLinks.slugger`                | `(text: string) => string`                 | GitHub-style slugs    | Slugs heading anchors.                                                                                        |
 | `embeds.readNote`                  | `(path: string) => string \| undefined`    | –                    | Reads a Note's markdown by its resolved path; required for transclusion.                                       |
 | `embeds.maxDepth`                  | `number`                                    | `4`                  | Maximum transclusion nesting depth (cycle-guarded).                                                           |
 | `blockIds.readNote`                | `(path: string) => string \| undefined`    | `embeds.readNote`    | Reads a Note's markdown for cross-Note Block References.                                                       |
@@ -164,19 +163,20 @@ import {
 - `[[Note|Alias]]` → displays the Alias.
 - `[[Note#Heading]]`, `[[#Heading]]` and `[[Note#H1#H2]]` → links to heading anchors (GitHub-style slugs by default).
 - `[[Note#^block-id]]`, `[[#^block-id]]` → links to a Block Reference.
+- Subpaths are validated: a heading Subpath whose heading cannot be found renders via the unresolved strategy. Same-Note Subpaths validate against the current Note; cross-Note Subpaths against the target's markdown when a reader (`blockIds.readNote` / `embeds.readNote`) is configured — without one, the link is kept.
 - `[[Note\|Alias]]` inside a table cell still parses as an aliased link.
 - Unresolved links render as `<a class="is-unresolved">` (or plain text) — never a broken link.
 - Wiki links fire in every phrasing context (headings, lists, emphasis, table cells, callout bodies, transcluded content), are left alone inside code, and render literally inside standard link text.
-- The Anchor Slugger defaults to GitHub-style slugs; override with `slugger`.
+- The Anchor Slugger defaults to GitHub-style slugs; override with `wikiLinks.slugger`.
 
 ### Embeds
 
-- `![[Note]]` transcludes the whole Note; `![[Note#Heading]]` a section; `![[Note#^block-id]]` a single Block.
+- `![[Note]]` transcludes the whole Note; `![[Note#Heading]]` a section; `![[Note#^block-id]]` a single Block. An Alias on a Note Embed is ignored, like Obsidian: `![[Note|Alias]]` embeds the Note.
 - Transcluded content lives in the `embed` node's `children`, so markdown inside it is processed as markdown (embedded wiki links, callouts and highlights work).
 - The Embed container carries the embedded Note's CSS Classes; a lone Embed is promoted to a `div.internal-embed`, a mid-text Embed becomes a `span.internal-embed`.
-- `![[image.png]]` renders an `<img>`, with `![[image.png|300]]` and `|300x200` sizing. `![[clip.mp3]]` / `![[clip.mp4]]` render `<audio>` / `<video>` leaves. PDF embeds fall back to a link.
+- `![[image.png]]` renders an `<img>`, with `![[image.png|300]]` and `|300x200` sizing. `![[clip.mp3]]` / `![[clip.mp4]]` render `<audio>` / `<video>` leaves. PDF embeds fall back to a link carrying the `internal-embed` container class.
 - Unresolved Embeds render a marked placeholder instead of disappearing.
-- Transclusion stops at `embeds.maxDepth` (default 4) and survives cycles (`A` → `B` → `A`).
+- Embedding stops at `embeds.maxDepth` (default 4) and survives cycles (`A` → `B` → `A`); the stopped placeholder is marked `is-embed-limit`, not `is-unresolved`, since its target resolved fine.
 
 ### Highlights
 
