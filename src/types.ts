@@ -22,12 +22,20 @@ export type WikiLinksOptions = {
   unresolvedStrategy?: UnresolvedStrategy | undefined;
 };
 
+export type EmbedsOptions = {
+  /** Reads a Note's markdown by its resolved path. */
+  readNote?: ((path: string) => string | undefined) | undefined;
+  /** Maximum nesting depth; defaults to 4. */
+  maxDepth?: number | undefined;
+};
+
 export type RemarkObsidianMdOptions = {
   resolver?: Resolver | undefined;
   slugger?: ((text: string) => string) | undefined;
   slugify?: ((text: string) => string) | undefined;
   urlPrefix?: string | undefined;
   wikiLinks?: WikiLinksOptions | undefined;
+  embeds?: EmbedsOptions | undefined;
   callouts?: CalloutsPluginOptions | undefined;
 };
 
@@ -38,6 +46,8 @@ export type WikiLinksPluginOptions = {
   urlPrefix?: string | undefined;
   unresolvedStrategy?: UnresolvedStrategy | undefined;
 };
+
+export type EmbedsPluginOptions = WikiLinksPluginOptions & EmbedsOptions;
 
 export type WikiLinkContext = {
   resolver: Resolver;
@@ -63,6 +73,15 @@ export interface WikiLinkNode extends Literal {
 }
 
 /**
+ * Transcluded content. `value` holds the raw `![[…]]` inner text only until
+ * the Embed transform turns it into a container with parsed children.
+ */
+export interface EmbedNode extends Parent {
+  type: "embed";
+  value?: string;
+}
+
+/**
  * A Callout. Unlike `embed`, its wrapper structure has no native MDAST
  * equivalent, so title/content wrappers use the internal `calloutPart` node.
  */
@@ -79,10 +98,12 @@ export interface CalloutPartNode extends Parent {
 declare module "mdast" {
   interface PhrasingContentMap {
     wikiLink: WikiLinkNode;
+    embed: EmbedNode;
   }
 
   interface RootContentMap {
     wikiLink: WikiLinkNode;
+    embed: EmbedNode;
     callout: CalloutNode;
     calloutPart: CalloutPartNode;
   }
@@ -91,5 +112,6 @@ declare module "mdast" {
 declare module "micromark-util-types" {
   interface TokenTypeMap {
     wikiLink: "wikiLink";
+    embed: "embed";
   }
 }
