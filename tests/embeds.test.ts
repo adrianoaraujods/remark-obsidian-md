@@ -21,7 +21,9 @@ const notes: Record<string, string> = {
   "/Styled.md": "Styled content",
   "/Chain A.md": "Chain A body ![[Chain B]]",
   "/Chain B.md": "Chain B body ![[Chain C]]",
-  "/Chain C.md": "Chain C body",
+  "/Chain C.md": "Chain C body ![[Chain D]]",
+  "/Chain D.md": "Chain D body ![[Chain E]]",
+  "/Chain E.md": "Chain E body",
   "/Nested.md": [
     "Intro [[Link]]",
     "",
@@ -43,6 +45,8 @@ const resolver = mapResolver({
   "Chain A": { path: "/Chain A.md" },
   "Chain B": { path: "/Chain B.md" },
   "Chain C": { path: "/Chain C.md" },
+  "Chain D": { path: "/Chain D.md" },
+  "Chain E": { path: "/Chain E.md" },
   Nested: { path: "/Nested.md" },
 });
 
@@ -146,6 +150,15 @@ describe("remarkObsidianEmbeds", () => {
 
     expect(json).toContain("Chain B body");
     expect(json).not.toContain("Chain C body");
+    expect(json.match(/is-unresolved/g)).toHaveLength(1);
+  });
+
+  it("defaults the depth limit to 4", () => {
+    const tree = process("![[Chain A]]");
+    const json = JSON.stringify(tree);
+
+    expect(json).toContain("Chain D body");
+    expect(json).not.toContain("Chain E body");
     expect(json.match(/is-unresolved/g)).toHaveLength(1);
   });
 
