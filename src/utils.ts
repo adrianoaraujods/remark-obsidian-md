@@ -113,6 +113,20 @@ export function slugify(text: string): string {
   );
 }
 
+/** Concatenates a node's text content: its own value, or its children's. */
+export function textOf(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+
+  const { value, children } = node as {
+    value?: unknown;
+    children?: unknown[];
+  };
+
+  if (typeof value === "string") return value;
+  if (Array.isArray(children)) return children.map(textOf).join("");
+  return "";
+}
+
 /**
  * Builds a root-relative, slugified URL from a vault-relative file path.
  *

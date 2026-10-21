@@ -164,6 +164,7 @@ import {
 - `[[Note|Alias]]` → displays the Alias.
 - `[[Note#Heading]]`, `[[#Heading]]` and `[[Note#H1#H2]]` → links to heading anchors (GitHub-style slugs by default).
 - `[[Note#^block-id]]`, `[[#^block-id]]` → links to a Block Reference.
+- Subpaths are validated: a heading Subpath whose heading cannot be found renders via the unresolved strategy. Same-Note Subpaths validate against the current Note; cross-Note Subpaths against the target's markdown when a reader (`blockIds.readNote` / `embeds.readNote`) is configured — without one, the link is kept.
 - `[[Note\|Alias]]` inside a table cell still parses as an aliased link.
 - Unresolved links render as `<a class="is-unresolved">` (or plain text) — never a broken link.
 - Wiki links fire in every phrasing context (headings, lists, emphasis, table cells, callout bodies, transcluded content), are left alone inside code, and render literally inside standard link text.
