@@ -501,7 +501,7 @@ describe("remarkObsidianEmbeds (Assets)", () => {
     });
   });
 
-  it("falls back to a link for an unsupported Asset type", () => {
+  it("falls back to a link carrying the Embed container class for an unsupported Asset type", () => {
     const tree = processAssets("![[Doc.pdf]]");
 
     expect(tree.children[0]).toMatchObject({
@@ -511,6 +511,7 @@ describe("remarkObsidianEmbeds (Assets)", () => {
           type: "link",
           url: "/Doc.pdf",
           children: [{ type: "text", value: "Doc.pdf" }],
+          data: { hProperties: { className: ["internal-embed"] } },
         },
       ],
     });
@@ -526,6 +527,7 @@ describe("remarkObsidianEmbeds (Assets)", () => {
           type: "link",
           url: "/Doc.pdf",
           children: [{ type: "text", value: "The doc" }],
+          data: { hProperties: { className: ["internal-embed"] } },
         },
       ],
     });

@@ -297,6 +297,7 @@ function assetEmbed(
       type: "link",
       url: asset.path,
       children: [{ type: "text", value: parsed.alias || parsed.target }],
+      data: { hProperties: { className: ["internal-embed"] } },
     };
   }
 
