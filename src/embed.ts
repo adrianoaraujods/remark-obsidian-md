@@ -178,13 +178,18 @@ function resolveEmbed(
   // their transform understands them.
   if (parsed.alias) return literalEmbed(node);
 
-  const content = context.readNote(resolved.path);
-
+  // The target resolved, but the cycle/depth guard stops here: mark the
+  // placeholder neutrally so it is not mistaken for an unresolved target.
   if (
-    content === undefined ||
     state.depth >= context.maxDepth ||
     state.visited.has(resolved.path)
   ) {
+    return placeholder(parsed.target, "is-embed-limit");
+  }
+
+  const content = context.readNote(resolved.path);
+
+  if (content === undefined) {
     return placeholder(parsed.target);
   }
 
@@ -211,11 +216,11 @@ function resolveEmbed(
   };
 }
 
-function placeholder(target: string): EmbedNode {
+function placeholder(target: string, marker = "is-unresolved"): EmbedNode {
   return {
     type: "embed",
     data: {
-      hProperties: { className: ["internal-embed", "is-unresolved"] },
+      hProperties: { className: ["internal-embed", marker] },
     },
     children: [{ type: "text", value: target }],
   };

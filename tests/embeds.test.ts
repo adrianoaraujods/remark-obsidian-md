@@ -167,7 +167,8 @@ describe("remarkObsidianEmbeds", () => {
 
     expect(json.match(/Cycle A body/g)).toHaveLength(1);
     expect(json.match(/Cycle B body/g)).toHaveLength(1);
-    expect(json.match(/is-unresolved/g)).toHaveLength(1);
+    expect(json.match(/is-embed-limit/g)).toHaveLength(1);
+    expect(json).not.toContain("is-unresolved");
   });
 
   it("stops transcluding at the depth limit", () => {
@@ -178,7 +179,8 @@ describe("remarkObsidianEmbeds", () => {
 
     expect(json).toContain("Chain B body");
     expect(json).not.toContain("Chain C body");
-    expect(json.match(/is-unresolved/g)).toHaveLength(1);
+    expect(json.match(/is-embed-limit/g)).toHaveLength(1);
+    expect(json).not.toContain("is-unresolved");
   });
 
   it("defaults the depth limit to 4", () => {
@@ -187,7 +189,8 @@ describe("remarkObsidianEmbeds", () => {
 
     expect(json).toContain("Chain D body");
     expect(json).not.toContain("Chain E body");
-    expect(json.match(/is-unresolved/g)).toHaveLength(1);
+    expect(json.match(/is-embed-limit/g)).toHaveLength(1);
+    expect(json).not.toContain("is-unresolved");
   });
 
   it("leaves standard Markdown images alone", () => {

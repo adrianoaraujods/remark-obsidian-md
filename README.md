@@ -177,7 +177,7 @@ import {
 - The Embed container carries the embedded Note's CSS Classes; a lone Embed is promoted to a `div.internal-embed`, a mid-text Embed becomes a `span.internal-embed`.
 - `![[image.png]]` renders an `<img>`, with `![[image.png|300]]` and `|300x200` sizing. `![[clip.mp3]]` / `![[clip.mp4]]` render `<audio>` / `<video>` leaves. PDF embeds fall back to a link carrying the `internal-embed` container class.
 - Unresolved Embeds render a marked placeholder instead of disappearing.
-- Transclusion stops at `embeds.maxDepth` (default 4) and survives cycles (`A` → `B` → `A`).
+- Embedding stops at `embeds.maxDepth` (default 4) and survives cycles (`A` → `B` → `A`); the stopped placeholder is marked `is-embed-limit`, not `is-unresolved`, since its target resolved fine.
 
 ### Highlights
 
