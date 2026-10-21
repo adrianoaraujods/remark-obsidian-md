@@ -1,4 +1,4 @@
-import type { Literal } from "mdast";
+import type { Literal, Parent } from "mdast";
 
 export type NoteMetadata = {
   title: string;
@@ -27,6 +27,13 @@ export type BlockIdsOptions = {
   readNote?: ((path: string) => string | undefined) | undefined;
 };
 
+export type EmbedsOptions = {
+  /** Reads a Note's markdown by its resolved path. */
+  readNote?: ((path: string) => string | undefined) | undefined;
+  /** Maximum nesting depth; defaults to 4. */
+  maxDepth?: number | undefined;
+};
+
 export type RemarkObsidianMdOptions = {
   resolver?: Resolver | undefined;
   slugger?: ((text: string) => string) | undefined;
@@ -34,6 +41,8 @@ export type RemarkObsidianMdOptions = {
   urlPrefix?: string | undefined;
   wikiLinks?: WikiLinksOptions | undefined;
   blockIds?: BlockIdsOptions | undefined;
+  embeds?: EmbedsOptions | undefined;
+  callouts?: CalloutsPluginOptions | undefined;
 };
 
 export type WikiLinksPluginOptions = {
@@ -43,6 +52,8 @@ export type WikiLinksPluginOptions = {
   urlPrefix?: string | undefined;
   unresolvedStrategy?: UnresolvedStrategy | undefined;
 };
+
+export type EmbedsPluginOptions = WikiLinksPluginOptions & EmbedsOptions;
 
 export type WikiLinkContext = {
   resolver: Resolver;
@@ -59,23 +70,61 @@ export type WikiLinkContext = {
     | undefined;
 };
 
+export type CalloutTypeDefinition = {
+  icon?: string;
+  color?: string;
+  title?: string;
+};
+
+export type CalloutsPluginOptions = {
+  types?: Record<string, CalloutTypeDefinition>;
+};
+
 /** Intermediate node produced by the Wiki Link tokenizer. */
 export interface WikiLinkNode extends Literal {
   type: "wikiLink";
 }
 
+/**
+ * Transcluded content. `value` holds the raw `![[…]]` inner text only until
+ * the Embed transform turns it into a container with parsed children.
+ */
+export interface EmbedNode extends Parent {
+  type: "embed";
+  value?: string;
+}
+
+/**
+ * A Callout. Unlike `embed`, its wrapper structure has no native MDAST
+ * equivalent, so title/content wrappers use the internal `calloutPart` node.
+ */
+export interface CalloutNode extends Parent {
+  type: "callout";
+  children: CalloutPartNode[];
+}
+
+/** One rendered wrapper inside a Callout (`callout-title`, `callout-content`…). */
+export interface CalloutPartNode extends Parent {
+  type: "calloutPart";
+}
+
 declare module "mdast" {
   interface PhrasingContentMap {
     wikiLink: WikiLinkNode;
+    embed: EmbedNode;
   }
 
   interface RootContentMap {
     wikiLink: WikiLinkNode;
+    embed: EmbedNode;
+    callout: CalloutNode;
+    calloutPart: CalloutPartNode;
   }
 }
 
 declare module "micromark-util-types" {
   interface TokenTypeMap {
     wikiLink: "wikiLink";
+    embed: "embed";
   }
 }
