@@ -106,11 +106,10 @@ type ConfigureEmbedsOptions = EmbedsOptions & {
 };
 
 export type EmbedContext = {
+  processor: Processor;
   wikiLinks: WikiLinkContext;
   readNote: (path: string) => string | undefined;
   maxDepth: number;
-  micromarkExtensions: unknown[];
-  fromMarkdownExtensions: unknown[];
 };
 
 type EmbedState = {
@@ -210,12 +209,29 @@ function parseEmbedded(
   state: EmbedState,
 ): RootContent[] {
   const processor = unified().use(remarkParse);
+  const input = context.processor.data() as Record<string, unknown>;
   const data = processor.data() as Record<string, unknown>;
 
-  // Reuse the inline tokenizers available to the host pipeline (Wiki Link,
+  // Reuse every inline tokenizer available to the host pipeline (Wiki Link,
   // Embed, and later Comments/Footnotes).
-  data.micromarkExtensions = [...context.micromarkExtensions];
-  data.fromMarkdownExtensions = [...context.fromMarkdownExtensions];
+  const micromarkExtensions = [
+    ...((input.micromarkExtensions as unknown[] | undefined) ?? []),
+  ];
+  const fromMarkdownExtensions = [
+    ...((input.fromMarkdownExtensions as unknown[] | undefined) ?? []),
+  ];
+
+  // Standalone use has no Wiki Link tokenizer on the host pipeline yet, but
+  // transcluded content must still resolve its Wiki Links.
+  if (!micromarkExtensions.includes(wikiLinkSyntax)) {
+    micromarkExtensions.push(wikiLinkSyntax);
+  }
+  if (!fromMarkdownExtensions.includes(wikiLinkFromMarkdown)) {
+    fromMarkdownExtensions.push(wikiLinkFromMarkdown);
+  }
+
+  data.micromarkExtensions = micromarkExtensions;
+  data.fromMarkdownExtensions = fromMarkdownExtensions;
 
   const tree = processor.runSync(processor.parse(markdown)) as Root;
 
@@ -264,28 +280,11 @@ export function configureEmbeds(
   add(data, "micromarkExtensions", embedSyntax);
   add(data, "fromMarkdownExtensions", embedFromMarkdown);
 
-  const micromarkExtensions = [
-    ...((data.micromarkExtensions as unknown[] | undefined) ?? []),
-  ];
-  const fromMarkdownExtensions = [
-    ...((data.fromMarkdownExtensions as unknown[] | undefined) ?? []),
-  ];
-
-  // Standalone use has no Wiki Link tokenizer on the host pipeline yet, but
-  // transcluded content must still resolve its Wiki Links.
-  if (!micromarkExtensions.includes(wikiLinkSyntax)) {
-    micromarkExtensions.push(wikiLinkSyntax);
-  }
-  if (!fromMarkdownExtensions.includes(wikiLinkFromMarkdown)) {
-    fromMarkdownExtensions.push(wikiLinkFromMarkdown);
-  }
-
   return {
+    processor,
     wikiLinks: options.wikiLinks,
     readNote: options.readNote ?? (() => undefined),
     maxDepth: options.maxDepth ?? 4,
-    micromarkExtensions,
-    fromMarkdownExtensions,
   };
 }
 
