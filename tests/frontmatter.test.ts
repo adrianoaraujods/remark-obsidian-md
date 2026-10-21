@@ -89,11 +89,43 @@ describe("getFrontmatter", () => {
     });
   });
 
+  it("uses a custom slugify function", () => {
+    expect(
+      getFrontmatter(
+        { related: "[[Wiki Link]]" },
+        { resolver, slugify: (text) => text.replace(/\s+/g, "_") },
+      ),
+    ).toEqual({
+      related: { url: "/Wiki_Link", label: "Wiki Link" },
+    });
+  });
+
   it("resolves wiki links inside arrays", () => {
     expect(
       getFrontmatter({ see: ["[[Wiki Link]]", "plain"] }, { resolver }),
     ).toEqual({
       see: [{ url: "/wiki-link", label: "Wiki Link" }, "plain"],
+    });
+  });
+
+  it("resolves wiki links in nested objects and arrays", () => {
+    expect(
+      getFrontmatter(
+        {
+          meta: {
+            related: "[[Wiki Link]]",
+            list: ["[[Wiki Link]]", 1],
+            keep: { text: "See [[Wiki Link]] now" },
+          },
+        },
+        { resolver },
+      ),
+    ).toEqual({
+      meta: {
+        related: { url: "/wiki-link", label: "Wiki Link" },
+        list: [{ url: "/wiki-link", label: "Wiki Link" }, 1],
+        keep: { text: "See [[Wiki Link]] now" },
+      },
     });
   });
 
