@@ -22,9 +22,15 @@ import type {
   EmbedNode,
   EmbedsOptions,
   EmbedsPluginOptions,
+  ResolvedTarget,
   WikiLinkContext,
 } from "./types.js";
-import { githubSlugger, parseWikiLink, slugify } from "./utils.js";
+import {
+  githubSlugger,
+  type ParsedWikiLink,
+  parseWikiLink,
+  slugify,
+} from "./utils.js";
 import {
   transformWikiLinks,
   wikiLinkFromMarkdown,
@@ -157,16 +163,20 @@ function resolveEmbed(
 ): RootContent {
   const parsed = parseWikiLink(node.value ?? "");
 
-  // Aliases, Subpaths and Assets belong to later tickets: keep the source
-  // literal until their transform understands them.
-  if (!parsed || parsed.alias || parsed.subpaths.length > 0) {
-    return { type: "text", value: `![[${node.value ?? ""}]]` };
-  }
+  if (!parsed) return literalEmbed(node);
 
   const resolved = context.wikiLinks.resolver.resolve(parsed.target);
 
-  if (!resolved.exists || resolved.kind !== "note") {
-    return placeholder(parsed.target);
+  if (!resolved.exists) return placeholder(parsed.target);
+
+  if (resolved.kind === "asset") {
+    return assetEmbed(parsed, resolved);
+  }
+
+  // Aliases and Subpaths on Notes belong to later tickets: keep the source
+  // literal until their transform understands them.
+  if (parsed.alias || parsed.subpaths.length > 0) {
+    return literalEmbed(node);
   }
 
   const content = context.readNote(resolved.path);
@@ -200,6 +210,99 @@ function placeholder(target: string): EmbedNode {
       hProperties: { className: ["internal-embed", "is-unresolved"] },
     },
     children: [{ type: "text", value: target }],
+  };
+}
+
+function literalEmbed(node: EmbedNode): RootContent {
+  return { type: "text", value: `![[${node.value ?? ""}]]` };
+}
+
+const IMAGE_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".svg",
+  ".webp",
+  ".avif",
+  ".bmp",
+  ".ico",
+]);
+const AUDIO_EXTENSIONS = new Set([
+  ".mp3",
+  ".wav",
+  ".ogg",
+  ".oga",
+  ".m4a",
+  ".flac",
+  ".aac",
+  ".opus",
+]);
+const VIDEO_EXTENSIONS = new Set([".mp4", ".webm", ".ogv", ".mov", ".m4v"]);
+
+/** Obsidian reads a numeric Asset Alias as a size: `|300` or `|300x200`. */
+function parseSize(alias: string | undefined) {
+  const match = alias?.match(/^(\d+)(?:x(\d+))?$/i);
+  if (!match?.[1]) return null;
+
+  return {
+    width: Number(match[1]),
+    height: match[2] ? Number(match[2]) : undefined,
+  };
+}
+
+/**
+ * Assets are leaves: the target's file is referenced in place rather than
+ * parsed. Images map to the native `image` node; audio and video reuse the
+ * `embed` node with their media element as `hName`; anything else links.
+ */
+function assetEmbed(
+  parsed: ParsedWikiLink,
+  asset: Extract<ResolvedTarget, { kind: "asset"; exists: true }>,
+): RootContent {
+  const ext = asset.ext.toLowerCase();
+
+  if (IMAGE_EXTENSIONS.has(ext)) {
+    const size = parseSize(parsed.alias);
+    return {
+      type: "image",
+      url: asset.path,
+      alt: size ? "" : (parsed.alias ?? ""),
+      data: {
+        hProperties: {
+          className: ["internal-embed"],
+          ...(size?.width !== undefined ? { width: size.width } : {}),
+          ...(size?.height !== undefined ? { height: size.height } : {}),
+        },
+      },
+    };
+  }
+
+  const hName = AUDIO_EXTENSIONS.has(ext)
+    ? "audio"
+    : VIDEO_EXTENSIONS.has(ext)
+      ? "video"
+      : undefined;
+
+  if (!hName) {
+    return {
+      type: "link",
+      url: asset.path,
+      children: [{ type: "text", value: parsed.alias || parsed.target }],
+    };
+  }
+
+  return {
+    type: "embed",
+    data: {
+      hName,
+      hProperties: {
+        className: ["internal-embed"],
+        src: asset.path,
+        controls: true,
+      },
+    },
+    children: [],
   };
 }
 
@@ -259,10 +362,15 @@ function promoteLoneEmbeds(tree: Root): void {
 
 function annotateContainers(tree: Root): void {
   visit(tree, "embed", (node, _index, parent) => {
-    const block = !parent || !PHRASING_PARENTS.has(parent.type);
     const data = (node.data ?? {}) as {
+      hName?: string;
       hProperties?: Record<string, unknown>;
     };
+
+    // Media leaves (and anything else that chose its own element) keep it.
+    if (data.hName) return;
+
+    const block = !parent || !PHRASING_PARENTS.has(parent.type);
 
     node.data = {
       ...data,
