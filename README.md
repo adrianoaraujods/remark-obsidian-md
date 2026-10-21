@@ -104,10 +104,9 @@ import type { RemarkObsidianMdOptions } from "remark-obsidian-md";
 | :--------------------------------- | :------------------------------------------ | :------------------- | :------------------------------------------------------------------------------------------------------------ |
 | `resolver`                         | `Resolver`                                 | empty map            | Resolves Link Targets: `filesystemResolver(vault)` or `mapResolver(map)`. Without one, nothing resolves.       |
 | `slugify`                          | `(text: string) => string`                 | built-in slugify     | Converts file paths to URL segments.                                                                          |
-| `slugger`                          | `(text: string) => string`                 | GitHub-style slugs    | Slugs heading anchors.                                                                                         |
 | `urlPrefix`                        | `string`                                   | `""`                 | Prepended to every generated URL (e.g. `"/docs"`).                                                             |
 | `wikiLinks.unresolvedStrategy`     | `"link" \| "plain"`                         | `"link"`             | `"link"` renders `<a class="is-unresolved">`; `"plain"` renders the label as text.                             |
-| `wikiLinks.slugger`                | `(text: string) => string`                 | top-level `slugger`  | Per-feature override of the anchor slugger.                                                                    |
+| `wikiLinks.slugger`                | `(text: string) => string`                 | GitHub-style slugs    | Slugs heading anchors.                                                                                        |
 | `embeds.readNote`                  | `(path: string) => string \| undefined`    | –                    | Reads a Note's markdown by its resolved path; required for transclusion.                                       |
 | `embeds.maxDepth`                  | `number`                                    | `4`                  | Maximum transclusion nesting depth (cycle-guarded).                                                           |
 | `blockIds.readNote`                | `(path: string) => string \| undefined`    | `embeds.readNote`    | Reads a Note's markdown for cross-Note Block References.                                                       |
@@ -168,7 +167,7 @@ import {
 - `[[Note\|Alias]]` inside a table cell still parses as an aliased link.
 - Unresolved links render as `<a class="is-unresolved">` (or plain text) — never a broken link.
 - Wiki links fire in every phrasing context (headings, lists, emphasis, table cells, callout bodies, transcluded content), are left alone inside code, and render literally inside standard link text.
-- The Anchor Slugger defaults to GitHub-style slugs; override with `slugger`.
+- The Anchor Slugger defaults to GitHub-style slugs; override with `wikiLinks.slugger`.
 
 ### Embeds
 

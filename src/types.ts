@@ -36,7 +36,6 @@ export type EmbedsOptions = {
 
 export type RemarkObsidianMdOptions = {
   resolver?: Resolver | undefined;
-  slugger?: ((text: string) => string) | undefined;
   slugify?: ((text: string) => string) | undefined;
   urlPrefix?: string | undefined;
   wikiLinks?: WikiLinksOptions | undefined;

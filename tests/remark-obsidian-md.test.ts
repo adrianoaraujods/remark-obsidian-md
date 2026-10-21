@@ -220,7 +220,9 @@ describe("remarkObsidianMd", () => {
       children: [{ type: "link", url: "/wiki-link#some-heading" }],
     });
     expect(
-      process(markdown, { slugger: (text) => text.toUpperCase() }).children[0],
+      process(markdown, {
+        wikiLinks: { slugger: (text) => text.toUpperCase() },
+      }).children[0],
     ).toMatchObject({
       children: [{ type: "link", url: "/wiki-link#SOME HEADING!" }],
     });
