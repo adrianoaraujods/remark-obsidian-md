@@ -136,9 +136,9 @@ const PHRASING_PARENTS = new Set([
 ]);
 
 /**
- * Expands every Embed into its target's parsed content. Whole-Note targets
- * are dispatched here; partial Embeds (#10) and Assets (#11) extend
- * `resolveEmbed` without touching the transclusion engine.
+ * Expands every Embed into its target's parsed content. Whole-Note, partial
+ * (heading/block) and Asset targets are all dispatched through
+ * `resolveEmbed`.
  */
 export function transformEmbeds(
   tree: Root,
@@ -327,7 +327,7 @@ function parseEmbedded(
   const data = processor.data() as Record<string, unknown>;
 
   // Reuse every inline tokenizer available to the host pipeline (Wiki Link,
-  // Embed, and later Comments/Footnotes).
+  // Embed, Comment, Footnote).
   const micromarkExtensions = [
     ...((input.micromarkExtensions as unknown[] | undefined) ?? []),
   ];
@@ -336,7 +336,7 @@ function parseEmbedded(
   ];
 
   // Standalone use has no Wiki Link tokenizer on the host pipeline yet, but
-  // transcluded content must still resolve its Wiki Links.
+  // embedded content must still resolve its Wiki Links.
   if (!micromarkExtensions.includes(wikiLinkSyntax)) {
     micromarkExtensions.push(wikiLinkSyntax);
   }

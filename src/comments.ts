@@ -161,7 +161,7 @@ export function remarkObsidianComments(this: Processor): Transformer<Root> {
 
 /**
  * Comments are processed per document scope: the Note itself, and separately
- * every Embed's transcluded content, whose positions come from another
+ * every Embed's embedded content, whose positions come from another
  * document and must not be mixed with the outer offsets.
  */
 function processComments(parent: Parent): void {

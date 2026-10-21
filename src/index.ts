@@ -12,7 +12,7 @@ import { configureWikiLinks, transformWikiLinks } from "./wiki-link.js";
 
 /**
  * Composed plugin for the common case: renders Callouts, resolves Wiki Links,
- * transcludes Embeds and renders Highlights, Comments and inline Footnotes.
+ * expands Embeds and renders Highlights, Comments and inline Footnotes.
  * Per-feature plugins can be composed by hand instead.
  */
 export function remarkObsidianMd(

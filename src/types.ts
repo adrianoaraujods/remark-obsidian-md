@@ -86,7 +86,7 @@ export interface WikiLinkNode extends Literal {
 }
 
 /**
- * Transcluded content. `value` holds the raw `![[…]]` inner text only until
+ * Embedded content. `value` holds the raw `![[…]]` inner text only until
  * the Embed transform turns it into a container with parsed children.
  */
 export interface EmbedNode extends Parent {
