@@ -46,4 +46,19 @@ describe("remarkObsidianWikiLinks", () => {
       children: [{ type: "text", value: "Does Not Exist" }],
     });
   });
+
+  it("supports Aliases and heading Subpaths through the per-feature plugin", () => {
+    const tree = process("[[Wiki Link#Some Heading|Click Here]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "link",
+          url: "/wiki-link#some-heading",
+          children: [{ type: "text", value: "Click Here" }],
+        },
+      ],
+    });
+  });
 });
