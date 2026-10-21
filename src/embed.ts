@@ -24,7 +24,7 @@ import type {
   EmbedsPluginOptions,
   WikiLinkContext,
 } from "./types.js";
-import { parseWikiLink, slugify } from "./utils.js";
+import { githubSlugger, parseWikiLink, slugify } from "./utils.js";
 import {
   transformWikiLinks,
   wikiLinkFromMarkdown,
@@ -160,7 +160,7 @@ function resolveEmbed(
 
   // Aliases, Subpaths and Assets belong to later tickets: keep the source
   // literal until their transform understands them.
-  if (!parsed || parsed.alias || parsed.anchor) {
+  if (!parsed || parsed.alias || parsed.subpaths.length > 0) {
     return { type: "text", value: `![[${node.value ?? ""}]]` };
   }
 
@@ -295,6 +295,7 @@ export function remarkObsidianEmbeds(
 ): Transformer<Root> {
   const wikiLinks: WikiLinkContext = {
     resolver: options.resolver ?? mapResolver({}),
+    slugger: options.slugger ?? githubSlugger,
     slugify: options.slugify ?? slugify,
     urlPrefix: options.urlPrefix ?? "",
     unresolvedStrategy: options.unresolvedStrategy ?? "link",
