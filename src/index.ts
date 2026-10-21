@@ -45,11 +45,11 @@ function remarkObsidianMd(
 
 export default remarkObsidianMd;
 export {
-  getContentMap,
-  getFrontmatter,
-  slugify,
-  type Options,
   type ContentMetadata,
   type FrontmatterLink,
   type GetFrontmatterOptions,
+  getContentMap,
+  getFrontmatter,
+  type Options,
+  slugify,
 };
