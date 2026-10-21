@@ -165,15 +165,22 @@ export type MapResolverEntry = {
  * extension, by their key, full path, basename or Alias.
  */
 export function mapResolver(map: Record<string, MapResolverEntry>): Resolver {
-  // First match wins; root-wins on duplicate basenames is a filesystemResolver
-  // concern.
   const index = new Map<string, MapResolverEntry>();
+  const depths = new Map<string, number>();
 
   for (const [key, entry] of Object.entries(map)) {
     const basename = entry.path.split("/").pop() ?? entry.path;
+    const depth = entry.path.split("/").filter(Boolean).length;
+
     for (const name of [key, entry.path, basename, ...(entry.aliases ?? [])]) {
       const id = normalizeTarget(name);
-      if (!index.has(id)) index.set(id, entry);
+      if (!id) continue;
+      // Root-wins on duplicate basenames: the shallowest path takes the name.
+      const known = depths.get(id);
+      if (known === undefined || depth < known) {
+        index.set(id, entry);
+        depths.set(id, depth);
+      }
     }
   }
 

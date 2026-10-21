@@ -88,7 +88,7 @@ import remarkObsidianMd, {
 Pass a **Resolver** so wiki links and embeds can find their targets. Two are built in:
 
 - `filesystemResolver(vault, { duplicatePolicy })` — scans a Vault directory once (lazily, cached). Notes are matched by path, basename and Alias; Assets by path and filename. Matching is case-insensitive, the `.md` extension is optional, and duplicate basenames resolve **root-wins** by default, matching Obsidian.
-- `mapResolver(map)` — an in-memory `{ "Note": { path, title?, aliases?, cssclasses? } }` map, for when your content already lives somewhere else (a CMS, an in-memory index, tests).
+- `mapResolver(map)` — an in-memory `{ "Note": { path, title?, aliases?, cssclasses? } }` map, for when your content already lives somewhere else (a CMS, an in-memory index, tests). Duplicate basenames resolve root-wins, like the filesystem Resolver.
 
 Without a `resolver`, every target is unresolved and links render with the unresolved strategy (see [Options](#options)).
 

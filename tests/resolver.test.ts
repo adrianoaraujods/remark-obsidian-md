@@ -52,6 +52,22 @@ describe("mapResolver", () => {
     });
   });
 
+  it("resolves duplicate basenames root-wins, matching the filesystem Resolver", () => {
+    const dupes = mapResolver({
+      "folder/Dup": { path: "/folder/Dup.md" },
+      Dup: { path: "/Dup.md" },
+    });
+
+    expect(dupes.resolve("Dup")).toMatchObject({
+      exists: true,
+      path: "/Dup.md",
+    });
+    expect(dupes.resolve("folder/Dup")).toMatchObject({
+      exists: true,
+      path: "/folder/Dup.md",
+    });
+  });
+
   it("reports an unresolved target as a missing note", () => {
     expect(resolver.resolve("Does Not Exist")).toEqual({
       kind: "note",
