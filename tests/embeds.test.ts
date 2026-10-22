@@ -135,23 +135,26 @@ describe("remarkObsidianEmbeds", () => {
     });
   });
 
-  it("keeps a mid-text Embed inline as a span", () => {
+  it("splits a paragraph around a mid-text Embed", () => {
     const tree = process("before ![[A]] after");
 
-    expect(tree.children[0]).toMatchObject({
-      type: "paragraph",
-      children: [
-        { type: "text", value: "before " },
-        {
-          type: "embed",
-          data: {
-            hName: "span",
-            hProperties: { className: ["internal-embed"] },
-          },
+    expect(tree.children).toMatchObject([
+      {
+        type: "paragraph",
+        children: [{ type: "text", value: "before " }],
+      },
+      {
+        type: "embed",
+        data: {
+          hName: "div",
+          hProperties: { className: ["internal-embed"] },
         },
-        { type: "text", value: " after" },
-      ],
-    });
+      },
+      {
+        type: "paragraph",
+        children: [{ type: "text", value: " after" }],
+      },
+    ]);
   });
 
   it("carries the embedded Note's CSS Classes on the container", () => {
@@ -347,18 +350,40 @@ describe("partial Embeds", () => {
         hProperties: { className: ["internal-embed", "wide"] },
       },
     });
-    expect(inline.children[0]).toMatchObject({
-      type: "paragraph",
-      children: [
-        { type: "text", value: "before " },
-        {
-          type: "embed",
-          data: {
-            hName: "span",
-            hProperties: { className: ["internal-embed", "wide"] },
-          },
+    expect(inline.children).toMatchObject([
+      { type: "paragraph", children: [{ type: "text", value: "before " }] },
+      {
+        type: "embed",
+        data: {
+          hName: "div",
+          hProperties: { className: ["internal-embed", "wide"] },
         },
-        { type: "text", value: " after" },
+      },
+      { type: "paragraph", children: [{ type: "text", value: " after" }] },
+    ]);
+  });
+
+  it("hoists an Embed out of a Callout body paragraph built after expansion", () => {
+    const tree = process("> [!note] Title\n> ![[A]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "callout",
+      children: [
+        { type: "calloutPart" },
+        {
+          type: "calloutPart",
+          data: { hProperties: { className: ["callout-content"] } },
+          children: [
+            {
+              type: "embed",
+              data: {
+                hName: "div",
+                hProperties: { className: ["internal-embed"] },
+              },
+              children: [{ type: "paragraph" }],
+            },
+          ],
+        },
       ],
     });
   });

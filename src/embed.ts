@@ -1,4 +1,10 @@
-import type { Heading, ListItem, Root, RootContent } from "mdast";
+import type {
+  Heading,
+  ListItem,
+  PhrasingContent,
+  Root,
+  RootContent,
+} from "mdast";
 import type {
   CompileContext,
   Extension as FromMarkdownExtension,
@@ -148,8 +154,16 @@ export function transformEmbeds(
     // Children were already expanded at the correct depth.
     return SKIP;
   });
+}
 
-  promoteLoneEmbeds(tree);
+/**
+ * Assigns the container element for every Embed and hoists block-content
+ * Embeds out of paragraphs. Runs after `transformEmbeds` and after any
+ * transform that creates new paragraphs (e.g. Callouts), so those are
+ * covered too.
+ */
+export function finalizeEmbeds(tree: Root): void {
+  splitBlockEmbeds(tree);
   annotateContainers(tree);
 }
 
@@ -443,19 +457,68 @@ function normalizeHeading(text: string): string {
   return text.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function promoteLoneEmbeds(tree: Root): void {
+/**
+ * Breaks paragraphs around block-content Embeds so transcluded block Markdown
+ * never ends up inside a `<p>`/`<span>` (invalid HTML, hydration errors). A
+ * lone Embed is promoted as before; phrasing Embeds (placeholders, media)
+ * stay inline. Embeds inside headings or table cells cannot be split and are
+ * left inline.
+ */
+function splitBlockEmbeds(tree: Root): void {
   visit(tree, "paragraph", (node, index, parent) => {
-    if (
-      node.children.length !== 1 ||
-      node.children[0]?.type !== "embed" ||
-      index === undefined ||
-      !parent
-    ) {
-      return;
+    if (index === undefined || !parent) return;
+
+    const lone = node.children.length === 1;
+    const isBlock = (child: RootContent): child is EmbedNode =>
+      child.type === "embed" && (lone || hasBlockChildren(child));
+
+    if (!node.children.some(isBlock)) return;
+
+    const segments: RootContent[] = [];
+    let phrasing: PhrasingContent[] = [];
+
+    for (const child of node.children) {
+      if (isBlock(child)) {
+        if (phrasing.length > 0) {
+          segments.push({ type: "paragraph", children: phrasing });
+          phrasing = [];
+        }
+        segments.push(child);
+      } else {
+        phrasing.push(child as PhrasingContent);
+      }
     }
 
-    parent.children[index] = node.children[0];
+    if (phrasing.length > 0) {
+      segments.push({ type: "paragraph", children: phrasing });
+    }
+
+    parent.children.splice(index, 1, ...segments);
   });
+}
+
+/** Phrasing MDAST types; anything else in an Embed's children is block. */
+const INLINE_TYPES = new Set([
+  "text",
+  "emphasis",
+  "strong",
+  "inlineCode",
+  "image",
+  "imageReference",
+  "link",
+  "linkReference",
+  "break",
+  "html",
+  "delete",
+  "footnote",
+  "footnoteReference",
+  "inlineMath",
+  "mdxJsxTextElement",
+  "mdxTextExpression",
+]);
+
+function hasBlockChildren(node: EmbedNode): boolean {
+  return node.children.some((child) => !INLINE_TYPES.has(child.type));
 }
 
 function annotateContainers(tree: Root): void {
@@ -503,5 +566,6 @@ export function remarkObsidianEmbeds(
 
   return (tree) => {
     transformEmbeds(tree, context);
+    finalizeEmbeds(tree);
   };
 }

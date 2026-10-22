@@ -4,7 +4,7 @@ import type { Processor, Transformer } from "unified";
 import { processBlockIds } from "./block-id.js";
 import { transformCallouts } from "./callouts.js";
 import { configureComments } from "./comments.js";
-import { configureEmbeds, transformEmbeds } from "./embed.js";
+import { configureEmbeds, finalizeEmbeds, transformEmbeds } from "./embed.js";
 import { configureFootnotes } from "./footnotes.js";
 import { configureHighlights } from "./highlights.js";
 import type { RemarkObsidianMdOptions } from "./types.js";
@@ -40,6 +40,10 @@ export function remarkObsidianMd(
     // Embeds expand first so the later transforms also reach their children.
     transformEmbeds(tree, embeds);
     transformCallouts(tree, options.callouts);
+
+    // Embed containers are finalized after Callouts, which rewraps callout
+    // body lines into new paragraphs the Embed expansion never saw.
+    finalizeEmbeds(tree);
 
     // Comments run before the remaining transforms so an unclosed `%%` hides
     // the rest of the Note, including anything that follows it.
