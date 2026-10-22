@@ -108,7 +108,7 @@ function toCallout(
       hName: "span",
       hProperties: {
         className: ["callout-title-icon"],
-        "data-icon": definition.icon ?? CANONICAL_TYPES[type]?.icon ?? "pencil",
+        "data-icon": definition.icon ?? "pencil",
       },
     },
   };
@@ -241,19 +241,20 @@ function resolveType(
     defaultTitle: definition.title ?? capitalize(trimmed),
   });
 
-  if (custom[id]) return resolve(id, custom[id]);
-  if (CANONICAL_TYPES[id]) return resolve(id, CANONICAL_TYPES[id]);
+  // Custom types layer on top of the canonical defaults, so a partial
+  // definition (e.g. only `color`) keeps the canonical icon.
+  const merge = (type: string): CalloutTypeDefinition => ({
+    ...CANONICAL_TYPES[type],
+    ...custom[type],
+  });
+
+  if (custom[id] || CANONICAL_TYPES[id]) return resolve(id, merge(id));
 
   const alias = ALIASES[id];
-  if (alias) {
-    return resolve(alias, custom[alias] ?? CANONICAL_TYPES[alias] ?? {});
-  }
+  if (alias) return resolve(alias, merge(alias));
 
   // Unknown types render as `note`; the author's label survives as the title.
-  return resolve(
-    FALLBACK_TYPE,
-    custom[FALLBACK_TYPE] ?? CANONICAL_TYPES[FALLBACK_TYPE] ?? {},
-  );
+  return resolve(FALLBACK_TYPE, merge(FALLBACK_TYPE));
 }
 
 function capitalize(text: string): string {

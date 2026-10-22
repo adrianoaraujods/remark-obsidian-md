@@ -180,6 +180,21 @@ describe("Callouts", () => {
     ]);
   });
 
+  it("merges partial custom definitions over the canonical defaults", () => {
+    const callout = process("> [!hint]", {
+      callouts: { types: { tip: { color: "#00ff00" } } },
+    }).children[0] as any;
+
+    // Only `color` was configured; the canonical `flame` icon survives.
+    expect(callout.data.hProperties).toMatchObject({
+      "data-callout": "tip",
+      style: "--callout-color: #00ff00",
+    });
+    expect(callout.children[0].children[0].data.hProperties["data-icon"]).toBe(
+      "flame",
+    );
+  });
+
   it("renders a collapsed callout as details without open", () => {
     const callout = process("> [!faq]-").children[0] as any;
 
