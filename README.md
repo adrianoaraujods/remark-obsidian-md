@@ -220,7 +220,7 @@ These features are intentionally out of scope, each with the plugin that covers 
 
 Instead of rendering a built-in frontmatter component, the plugin exposes a pure helper, `getFrontmatter`, that resolves a parsed frontmatter object into a plain object you can render yourself.
 
-Wiki links (`[[Note]]`) and URLs are resolved to `{ url, label }` objects when the whole string value is a single link. Arrays and nested objects are resolved recursively; unresolved wiki links degrade to their label; all other value types are returned unchanged.
+Wiki links (`[[Note]]`) and URLs are resolved to `{ url, label }` objects when the whole string value is a single link. Arrays and nested objects are resolved recursively; wiki links whose target has no page in the vault come back as `{ label, unresolved: true }` so consumers can style them like Obsidian does; all other value types are returned unchanged.
 
 ```ts
 import { getFrontmatter } from "remark-obsidian-md";
@@ -249,7 +249,7 @@ Version 3.0.0 is a breaking rewrite. The output is framework-agnostic MDAST — 
 - **`enable*` flags removed.** `enableWikiLinks`, `enableEmbeds`, `enableHighlights` etc. are gone. To omit a feature, compose the per-feature plugins yourself instead of the composed default.
 - **`customProps` removed.** Nodes no longer take injected attributes from options. Custom nodes carry `data.hName` / `data.hProperties` (standard `mdast-util-to-hast` mechanism); post-process the MDAST to tweak properties.
 - **`include` node removed.** Embeds are now the custom `embed` node whose `children` hold the transcluded content, so downstream plugins process it. Both custom nodes render through `remark-rehype` without a companion plugin.
-- **`getFrontmatter` options changed.** `{ contentMap, urlPrefix, ignoredKeys }` is now `{ resolver, slugify?, urlPrefix?, ignoredKeys? }` — pass the same Resolver you pass to the plugin. Behaviour is otherwise unchanged.
+- **`getFrontmatter` options changed.** `{ contentMap, urlPrefix, ignoredKeys }` is now `{ resolver, slugify?, urlPrefix?, ignoredKeys? }` — pass the same Resolver you pass to the plugin. Unresolved wiki links now come back as `{ label, unresolved: true }` instead of a bare string, so consumers can style them like Obsidian.
 - **Callouts are back.** 2.0.0 removed them; 3.0.0 renders Obsidian's reading-view DOM and the bundled `styles/*.css` is gone (the `styles` export was removed with it). Icon hooks are `.callout-title-icon[data-icon]`.
 - **New syntax.** Comments (`%%…%%`), Block IDs / Block References (`^id`), inline Footnotes (`^[text]`), aliases, nested-heading Subpaths and Callout folding are now supported.
 - **`remark-gfm` is a peer dependency.** Install it and put it before this plugin in the pipeline.

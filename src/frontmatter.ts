@@ -10,10 +10,14 @@ import {
 } from "./utils.js";
 import { aliasOrTarget } from "./wiki-link.js";
 
-export type FrontmatterLink = {
-  url: string;
-  label: string;
-};
+export type FrontmatterLink =
+  | { url: string; label: string }
+  /**
+   * A wiki link whose target has no page in the vault (missing note, or an
+   * asset): unresolved like Obsidian, so consumers can style it instead of
+   * mistaking it for plain text.
+   */
+  | { url?: undefined; label: string; unresolved: true };
 
 export type GetFrontmatterOptions = {
   resolver: Resolver;
@@ -25,8 +29,9 @@ export type GetFrontmatterOptions = {
 /**
  * Resolves the values of a parsed frontmatter object so they can be rendered
  * directly by a consumer (e.g. fumadocs). Wiki links (`[[Note]]`) and URLs
- * inside string values are resolved to `{ url, label }` objects. Unresolved
- * wiki links degrade gracefully to their label text.
+ * inside string values are resolved to `{ url, label }` objects; wiki links
+ * whose target has no page come back as `{ label, unresolved: true }` so
+ * consumers can style them like Obsidian does.
  *
  * A string value is resolved to a `{ url, label }` link **only when the whole
  * value is a single wiki link or URL** (e.g. `"[[Note]]"`,
@@ -97,7 +102,9 @@ function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
   const anchor = anchorFor(parsed.subpath, githubSlugger);
 
   const resolved = options.resolver.resolve(target);
-  if (!resolved.exists || resolved.kind !== "note") return label;
+  if (!resolved.exists || resolved.kind !== "note") {
+    return { label, unresolved: true } satisfies FrontmatterLink;
+  }
 
   const resolvedUrl = slugifyUrl(resolved.path, {
     slugify: slugifyFn,

@@ -67,11 +67,27 @@ describe("getFrontmatter", () => {
     });
   });
 
-  it("degrades an unresolved wiki link to its label", () => {
+  it("marks an unresolved wiki link instead of degrading to plain text", () => {
     expect(
       getFrontmatter({ missing: "[[Does Not Exist]]" }, { resolver }),
     ).toEqual({
-      missing: "Does Not Exist",
+      missing: { label: "Does Not Exist", unresolved: true },
+    });
+  });
+
+  it("marks unresolved wiki links inside arrays and nested objects", () => {
+    expect(
+      getFrontmatter(
+        { meta: { list: ["[[Wiki Link]]", "[[Nope]]"] } },
+        { resolver },
+      ),
+    ).toEqual({
+      meta: {
+        list: [
+          { url: "/wiki-link", label: "Wiki Link" },
+          { label: "Nope", unresolved: true },
+        ],
+      },
     });
   });
 
