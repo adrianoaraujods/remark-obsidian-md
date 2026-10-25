@@ -60,11 +60,15 @@ describe("getFrontmatter", () => {
   });
 
   it("resolves an url into a link object", () => {
-    expect(
-      getFrontmatter({ site: "https://example.com" }, { resolver }),
-    ).toEqual({
+    const result = getFrontmatter(
+      { site: "https://example.com" },
+      { resolver },
+    );
+
+    expect(result).toEqual({
       site: { url: "https://example.com", label: "https://example.com" },
     });
+    expect(result.site).not.toHaveProperty("unresolved");
   });
 
   it("marks an unresolved wiki link instead of degrading to plain text", () => {
