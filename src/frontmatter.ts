@@ -28,18 +28,20 @@ export type GetFrontmatterOptions = {
 
 /**
  * Resolves the values of a parsed frontmatter object so they can be rendered
- * directly by a consumer (e.g. fumadocs). Wiki links (`[[Note]]`) and URLs
- * inside string values are resolved to `{ url, label }` objects; wiki links
- * whose target has no page come back as `{ label, unresolved: true }` so
- * consumers can style them like Obsidian does.
+ * directly by a consumer (e.g. fumadocs). Wiki links (`[[Note]]`), URLs and
+ * markdown links (`[label](https://example.com)`) inside string values are
+ * resolved to `{ url, label }` objects; wiki links whose target has no page
+ * come back as `{ label, unresolved: true }` so consumers can style them like
+ * Obsidian does. Markdown links are treated as external references: the
+ * target is emitted verbatim, never resolved against the vault.
  *
  * A string value is resolved to a `{ url, label }` link **only when the whole
- * value is a single wiki link or URL** (e.g. `"[[Note]]"`,
- * `"[[Note|Alias]]"`, `"https://example.com"`). Strings that merely *contain*
- * a link alongside other text are returned unchanged, so no surrounding text
- * or extra links is silently dropped. Arrays and nested objects are resolved
- * recursively; every other value type (boolean, number, Date) is returned
- * unchanged.
+ * value is a single link** (e.g. `"[[Note]]"`, `"[[Note|Alias]]"`,
+ * `"[Source](https://example.com)"`, `"https://example.com"`). Strings that
+ * merely *contain* a link alongside other text are returned unchanged, so no
+ * surrounding text or extra links is silently dropped. Arrays and nested
+ * objects are resolved recursively; every other value type (boolean, number,
+ * Date) is returned unchanged.
  */
 export function getFrontmatter(
   frontmatter: Record<string, unknown>,
@@ -55,6 +57,8 @@ export function getFrontmatter(
 
   return result;
 }
+
+const MARKDOWN_LINK_REGEX = /^\[([^\]]+)\]\((.*)\)$/;
 
 function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
   if (Array.isArray(value)) {
@@ -81,7 +85,23 @@ function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
   // (e.g. "See [[Note]] now" or "[[A]] and [[B]]") are returned unchanged so no
   // surrounding text or extra links is silently discarded. The wiki-link
   // branch forbids `]` inside the brackets so a string with several `[[...]]`
-  // is not mistaken for one link.
+  // is not mistaken for one link; the markdown-link branch rejects targets
+  // with whitespace or `](` so glued/multi-link strings stay unchanged too.
+  const markdownLink = MARKDOWN_LINK_REGEX.exec(trimmed);
+  if (markdownLink) {
+    const label = markdownLink[1];
+    const target = markdownLink[2];
+    // Reject targets with whitespace (invalid markdown unless `<>`-wrapped)
+    // or `](` (several links glued into one string) so mixed strings stay
+    // unchanged instead of being mistaken for a single external reference.
+    if (label !== undefined && target && !/\s|\]\(/.test(target)) {
+      // Markdown links are external references: emit the target verbatim
+      // instead of resolving it against the vault.
+      return { url: target, label } satisfies FrontmatterLink;
+    }
+    return value;
+  }
+
   const isWholeLink = /^(?:\[\[[^\]]*\]\]|https?:\/\/\S+)$/.test(trimmed);
   if (!isWholeLink) return value;
 

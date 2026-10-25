@@ -71,6 +71,65 @@ describe("getFrontmatter", () => {
     expect(result.site).not.toHaveProperty("unresolved");
   });
 
+  it("treats a markdown link as an external reference", () => {
+    const result = getFrontmatter(
+      {
+        source:
+          "[YouTube, Marcos Kutova - AEDS III](https://www.youtube.com/watch?v=qcSh3jh_o0Q&list=PLKoAQTS8rBFp0ZRb_9fhEyY3nryg5iixU)",
+      },
+      { resolver },
+    );
+
+    expect(result).toEqual({
+      source: {
+        url: "https://www.youtube.com/watch?v=qcSh3jh_o0Q&list=PLKoAQTS8rBFp0ZRb_9fhEyY3nryg5iixU",
+        label: "YouTube, Marcos Kutova - AEDS III",
+      },
+    });
+    expect(result.source).not.toHaveProperty("unresolved");
+  });
+
+  it("treats markdown links inside arrays as external references", () => {
+    expect(
+      getFrontmatter(
+        {
+          fontes: [
+            "[GitHub, AEDS II - Slides Heapsort](https://github.com/icei-pucminas/aeds2/blob/master/heapsort.pdf)",
+            "[Wiki, Heapsort (C)](https://en.wikipedia.org/wiki/Heapsort_(algorithm))",
+          ],
+        },
+        { resolver },
+      ),
+    ).toEqual({
+      fontes: [
+        {
+          url: "https://github.com/icei-pucminas/aeds2/blob/master/heapsort.pdf",
+          label: "GitHub, AEDS II - Slides Heapsort",
+        },
+        {
+          url: "https://en.wikipedia.org/wiki/Heapsort_(algorithm)",
+          label: "Wiki, Heapsort (C)",
+        },
+      ],
+    });
+  });
+
+  it("emits a non-URL markdown link target verbatim", () => {
+    expect(
+      getFrontmatter({ site: "[Docs](www.example.com)" }, { resolver }),
+    ).toEqual({ site: { url: "www.example.com", label: "Docs" } });
+  });
+
+  it("keeps strings that merely contain markdown links unchanged", () => {
+    const mixed = "See [one](https://a.example) and [two](https://b.example)";
+    expect(getFrontmatter({ mixed }, { resolver })).toEqual({ mixed });
+  });
+
+  it("keeps malformed markdown links unchanged", () => {
+    const broken = "[no closing paren](https://example.com";
+    expect(getFrontmatter({ broken }, { resolver })).toEqual({ broken });
+  });
+
   it("marks an unresolved wiki link instead of degrading to plain text", () => {
     expect(
       getFrontmatter({ missing: "[[Does Not Exist]]" }, { resolver }),
