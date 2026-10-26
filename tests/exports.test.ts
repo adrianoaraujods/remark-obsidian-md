@@ -4,6 +4,7 @@ import { unified } from "unified";
 import { describe, expect, it } from "vitest";
 
 import remarkObsidianMd, {
+  createSlugifyPath,
   filesystemResolver,
   getFrontmatter,
   mapResolver,
@@ -118,6 +119,7 @@ describe("package exports", () => {
     expect(
       filesystemResolver("tests/fixtures").resolve("does-not-exist"),
     ).toEqual({ kind: "note", exists: false });
+    expect(createSlugifyPath(["/A.md", "/B.md"])("/A.md")).toBe("a");
     expect(
       getFrontmatter(
         { related: "[[Target]]" },

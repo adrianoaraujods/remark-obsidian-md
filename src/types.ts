@@ -13,8 +13,12 @@ export type ResolvedTarget =
 
 export type Resolver = {
   resolve(target: string): ResolvedTarget;
-  /** The Note paths a resolver knows about, when it scanned a Vault. */
-  paths?: readonly string[] | undefined;
+};
+
+/** A Resolver backed by a Vault scan: it knows the Note paths it found. */
+export type FilesystemResolver = Resolver & {
+  /** The Note paths the scan found, e.g. `/folder/Note.md`. */
+  paths: readonly string[];
 };
 
 export type UnresolvedStrategy = "link" | "plain";

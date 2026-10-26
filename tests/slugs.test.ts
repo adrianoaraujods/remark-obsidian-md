@@ -55,10 +55,38 @@ describe("createSlugifyPath", () => {
     expect(slugifyPath("/Notes/index.md")).toBe("notes/index");
   });
 
+  it("never takes the slug another Note already owns", () => {
+    const slugifyPath = createSlugifyPath([
+      "/A/Sebá.md",
+      "/A/Sebã.md",
+      "/A/Sebá-2.md",
+    ]);
+
+    expect(slugifyPath("/A/Sebá.md")).toBe("a/seba");
+    expect(slugifyPath("/A/Sebá-2.md")).toBe("a/seba-2");
+    expect(slugifyPath("/A/Sebã.md")).toBe("a/seba-3");
+  });
+
+  it("numbers two index Notes that slugify alike", () => {
+    const slugifyPath = createSlugifyPath([
+      "/Notes/index.md",
+      "/notes/index.md",
+    ]);
+
+    expect(slugifyPath("/Notes/index.md")).toBe("notes");
+    expect(slugifyPath("/notes/index.md")).toBe("notes-2");
+  });
+
   it("falls back to a plain slug for unknown paths", () => {
     const slugifyPath = createSlugifyPath(["/Notes/One.md"]);
 
     expect(slugifyPath("/Notes/Two.md")).toBe("notes/two");
+  });
+
+  it("keeps the folder of an unknown index Note", () => {
+    const slugifyPath = createSlugifyPath(["/Notes/One.md"]);
+
+    expect(slugifyPath("/Unknown/index.md")).toBe("unknown/index");
   });
 
   it("honours a custom slugify", () => {

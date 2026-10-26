@@ -166,6 +166,18 @@ export function textOf(node: unknown): string {
 }
 
 /**
+ * Normalizes a Vault path: backslashes become slashes, surrounding space,
+ * a leading slash and the markdown extension are dropped.
+ */
+export function normalizePath(path: string): string {
+  return path
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/\.mdx?$/i, "");
+}
+
+/**
  * Builds a root-relative, slugified URL from a vault-relative file path.
  *
  * @param path - The file path as stored in the content map (with or without a

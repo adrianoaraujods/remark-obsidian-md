@@ -97,6 +97,7 @@ export type {
   CalloutTypeDefinition,
   EmbedsOptions,
   EmbedsPluginOptions,
+  FilesystemResolver,
   NoteMetadata,
   RemarkObsidianMdOptions,
   ResolvedTarget,

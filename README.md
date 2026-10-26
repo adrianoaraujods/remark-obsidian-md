@@ -130,22 +130,22 @@ use(remarkObsidianMd, {
 });
 ```
 
-The built-in `slugify` spells `+` and `#` that follow a word, so `C++.md` → `c-plus-plus` and `C.md` → `c` get distinct URLs. It is not injective in general: names that differ only in other punctuation (say `A B.md` and `A-B.md`) still collide, and a site generator that requires unique page slugs will reject them — pass your own `slugify` when a vault has such names.
+The built-in `slugify` spells `+` and `#` that follow a word, so `C++.md` → `c-plus-plus` and `C.md` → `c` get distinct URLs. It is not injective in general: names that differ only in other punctuation (say `A B.md` and `A-B.md`) still collide, and a site generator that requires unique URLs will reject them — pass your own `slugify` when a Vault has such names.
 
 ### Unique slugs
 
-`createSlugifyPath` turns a list of Note paths into a `(path) => slug` map that gives every Note its own URL, even when two names slugify alike (`Sebá.md` and `Sebã.md` both want `seba`). The first Note of a colliding group keeps the plain slug, the others get `-2`, `-3`, …; paths are sorted, so the assignment does not depend on scan order. An `index` Note is published under its folder.
+`createSlugifyPath` turns a list of Note paths into a `(path) => slug` map that gives every Note its own URL, even when two names slugify alike (`Sebá.md` and `Sebã.md` both want `seba`). The first Note of a colliding group keeps the plain slug, the others get `-2`, `-3`, …; a slug another Note already owns is never taken, and paths are sorted, so the assignment does not depend on scan order. An `index` Note is published under its folder.
 
 ```ts
 import { createSlugifyPath, filesystemResolver } from "remark-obsidian-md";
 
 const resolver = filesystemResolver("./vault");
-const slugifyPath = createSlugifyPath(resolver.paths ?? []);
+const slugifyPath = createSlugifyPath(resolver.paths);
 
 use(remarkObsidianMd, { resolver, slugifyPath });
 ```
 
-Pass the same map to your site generator's page slugs, so a link and the page it points at always agree. `getFrontmatter` takes it too:
+Pass the same map to your site generator's slugs, so a link and the Note it points at always agree. `getFrontmatter` takes it too:
 
 ```ts
 const frontmatter = getFrontmatter(page.data.frontmatter, {
@@ -245,7 +245,7 @@ These features are intentionally out of scope, each with the plugin that covers 
 
 Instead of rendering a built-in frontmatter component, the plugin exposes a pure helper, `getFrontmatter`, that resolves a parsed frontmatter object into a plain object you can render yourself.
 
-Wiki links (`[[Note]]`), URLs and markdown links (`[label](https://example.com)`) are resolved to `{ url, label }` objects when the whole string value is a single link. Markdown links are treated as external references: the target is emitted verbatim, never resolved against the vault. Arrays and nested objects are resolved recursively; wiki links whose target has no page in the vault come back as `{ label, unresolved: true }` so consumers can style them like Obsidian does; all other value types are returned unchanged.
+Wiki links (`[[Note]]`), URLs and markdown links (`[label](https://example.com)`) are resolved to `{ url, label }` objects when the whole string value is a single link. Markdown links are treated as external references: the target is emitted verbatim, never resolved against the Vault. Arrays and nested objects are resolved recursively; wiki links whose target names no Note in the Vault come back as `{ label, unresolved: true }` so consumers can style them like Obsidian does; all other value types are returned unchanged.
 
 Whole-value ISO dates and datetimes come back as `{ date, kind: "date" | "datetime" }` — the ISO string preserved verbatim, so formatting (locale-dependent) stays the consumer's job. A property declared `date`/`datetime` in Obsidian is tagged according to its declared type; an untyped property is tagged by shape; a property declared as any other type is never tagged. Only top-level scalar values are tagged — arrays and nested objects are left alone, like Obsidian's single-valued date properties. Pass the type map with `filesystemPropertyTypes`:
 
@@ -271,7 +271,7 @@ const frontmatter = getFrontmatter(page.data.frontmatter, {
 
 ## Types
 
-This package is fully typed with [TypeScript](https://www.typescriptlang.org). It exports `RemarkObsidianMdOptions`, `Resolver`, `ResolvedTarget`, `NoteMetadata`, `MapResolverEntry`, `FilesystemResolverOptions`, `DuplicatePolicy`, `UnresolvedStrategy`, `WikiLinksOptions`, `WikiLinksPluginOptions`, `EmbedsOptions`, `EmbedsPluginOptions`, `BlockIdsOptions`, `CalloutsPluginOptions`, `CalloutTypeDefinition`, `GetFrontmatterOptions`, `FrontmatterLink`, `FrontmatterDate`, `PropertyTypes`, `SlugifyPath`, `filesystemPropertyTypes` and `createSlugifyPath`.
+This package is fully typed with [TypeScript](https://www.typescriptlang.org). It exports `RemarkObsidianMdOptions`, `Resolver`, `FilesystemResolver`, `ResolvedTarget`, `NoteMetadata`, `MapResolverEntry`, `FilesystemResolverOptions`, `DuplicatePolicy`, `UnresolvedStrategy`, `WikiLinksOptions`, `WikiLinksPluginOptions`, `EmbedsOptions`, `EmbedsPluginOptions`, `BlockIdsOptions`, `CalloutsPluginOptions`, `CalloutTypeDefinition`, `GetFrontmatterOptions`, `FrontmatterLink`, `FrontmatterDate`, `PropertyTypes`, `SlugifyPath`, `filesystemPropertyTypes` and `createSlugifyPath`.
 
 The custom `embed` and `callout` nodes are registered in the `@types/mdast` maps via module augmentation.
 

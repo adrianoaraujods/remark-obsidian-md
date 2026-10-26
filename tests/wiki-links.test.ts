@@ -47,6 +47,19 @@ describe("remarkObsidianWikiLinks", () => {
     });
   });
 
+  it("publishes a Note under the slug of a slugifyPath map", () => {
+    const tree = process("[[Nested]]", {
+      resolver: mapResolver({ Nested: { path: "/folder/Nested.md" } }),
+      slugifyPath: (path) =>
+        path === "/folder/Nested.md" ? "folder/nested-2" : "folder/other",
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [{ type: "link", url: "/folder/nested-2" }],
+    });
+  });
+
   it("supports Aliases and heading Subpaths through the per-feature plugin", () => {
     const tree = process("[[Wiki Link#Some Heading|Click Here]]");
 

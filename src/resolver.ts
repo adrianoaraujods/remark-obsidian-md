@@ -3,8 +3,13 @@ import { extname, join, relative, sep } from "node:path";
 
 import { load } from "js-yaml";
 
-import type { NoteMetadata, ResolvedTarget, Resolver } from "./types.js";
-import { isPlainObject } from "./utils.js";
+import type {
+  FilesystemResolver,
+  NoteMetadata,
+  ResolvedTarget,
+  Resolver,
+} from "./types.js";
+import { isPlainObject, normalizePath } from "./utils.js";
 
 /**
  * How to pick a winner when several files share a basename or Alias.
@@ -33,7 +38,7 @@ type ScanEntry = {
 export function filesystemResolver(
   vault: string,
   options: FilesystemResolverOptions = {},
-): Resolver {
+): FilesystemResolver {
   const policy = options.duplicatePolicy ?? "root";
   let scan: Scan | undefined;
 
@@ -212,12 +217,7 @@ export function mapResolver(map: Record<string, MapResolverEntry>): Resolver {
 }
 
 function normalizeTarget(target: string): string {
-  return target
-    .trim()
-    .replace(/\\/g, "/")
-    .replace(/^\/+/, "")
-    .replace(/\.mdx?$/i, "")
-    .toLowerCase();
+  return normalizePath(target).toLowerCase();
 }
 
 function titleOf(path: string): string {

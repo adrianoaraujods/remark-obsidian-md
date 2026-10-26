@@ -16,6 +16,16 @@ _Avoid_: page, document, file
 A non-markdown file in a Vault (image, PDF, audio) that can be embedded but not linked as a Note.
 _Avoid_: media, attachment, resource
 
+## Publishing
+
+**Slug**:
+The URL segment a Note is published under, derived from its name (e.g. `Sebá.md` → `seba`).
+_Avoid_: URL name, permalink, route
+
+**URL path**:
+The full path of a Note's published URL, made of one Slug per path segment (e.g. `geografia/localizacoes/seba`).
+_Avoid_: slug path, route, page path
+
 ## Links & embeds
 
 **Wiki Link**:

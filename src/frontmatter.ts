@@ -14,8 +14,8 @@ import { aliasOrTarget } from "./wiki-link.js";
 export type FrontmatterLink =
   | { url: string; label: string }
   /**
-   * A wiki link whose target has no page in the vault (missing note, or an
-   * asset): unresolved like Obsidian, so consumers can style it instead of
+   * A wiki link whose target names no Note in the Vault (missing Note, or an
+   * Asset): unresolved like Obsidian, so consumers can style it instead of
    * mistaking it for plain text.
    */
   | { url?: undefined; label: string; unresolved: true };
@@ -51,10 +51,10 @@ export type GetFrontmatterOptions = {
  * Resolves the values of a parsed frontmatter object so they can be rendered
  * directly by a consumer (e.g. fumadocs). Wiki links (`[[Note]]`), URLs and
  * markdown links (`[label](https://example.com)`) inside string values are
- * resolved to `{ url, label }` objects; wiki links whose target has no page
+ * resolved to `{ url, label }` objects; wiki links whose target names no Note
  * come back as `{ label, unresolved: true }` so consumers can style them like
  * Obsidian does. Markdown links are treated as external references: the
- * target is emitted verbatim, never resolved against the vault. Whole-value
+ * target is emitted verbatim, never resolved against the Vault. Whole-value
  * ISO dates come back as `{ date, kind }` — the ISO string verbatim plus its
  * kind — so consumers can format them; formatting itself is the consumer's
  * job.
