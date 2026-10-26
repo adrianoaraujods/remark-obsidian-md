@@ -84,7 +84,18 @@ export function anchorFor(
 }
 
 /**
+ * Spells a run of `+`/`#` so that symbol-bearing names stay distinct: without
+ * this, `C++`, `C#` and `C` all slugify to `c`.
+ */
+function spellSymbols(symbols: string): string[] {
+  return [...symbols].map((symbol) => (symbol === "+" ? " plus" : " sharp"));
+}
+
+/**
  * Converts a string into a URL-friendly slug.
+ *
+ * Symbols that follow a word are spelled out (`C++` → `c-plus-plus`,
+ * `C#` → `c-sharp`); any other punctuation is dropped.
  *
  * @param {string} text - The string to be slugified.
  * @returns {string} A lowercase, hyphenated, URL-safe string.
@@ -92,6 +103,7 @@ export function anchorFor(
  * slugify("Hello World!");        // "hello-world"
  * slugify("crème brûlée");       // "creme-brulee"
  * slugify("myCamelCaseString");  // "my-camel-case-string"
+ * slugify("C++");                // "c-plus-plus"
  */
 export function slugify(text: string): string {
   if (!text) return "";
@@ -105,11 +117,15 @@ export function slugify(text: string): string {
       // 2. Normalize accents (e.g., "é" -> "e")
       .normalize("NFKD")
       .replace(/[\u0300-\u036f]/g, "")
-      // 3. Lowercase everything
+      // 3. Spell symbols that follow a word, so "C++"/"C#" stay distinct from "C"
+      .replace(/([a-z0-9])([+#]+)/gi, (_, word: string, symbols: string) =>
+        [word, ...spellSymbols(symbols)].join(""),
+      )
+      // 4. Lowercase everything
       .toLowerCase()
-      // 4. Replace all non-alphanumeric chars with a hyphen
+      // 5. Replace all non-alphanumeric chars with a hyphen
       .replace(/[^a-z0-9]+/g, "-")
-      // 5. Remove leading/trailing hyphens and prevent double hyphens
+      // 6. Remove leading/trailing hyphens and prevent double hyphens
       .replace(/^-+|-+$/g, "")
       .replace(/-+/g, "-")
   );
