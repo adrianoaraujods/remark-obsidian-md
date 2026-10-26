@@ -2,6 +2,8 @@ import GithubSlugger from "github-slugger";
 import { codes } from "micromark-util-symbol";
 import type { Code } from "micromark-util-types";
 
+import type { SlugifyPath } from "./types.js";
+
 export const WIKI_LINK_REGEX = /(!)?\[\[(.*?)\]\]/;
 
 /** A Subpath, structured: either a Heading name or a Block ID (without the `^`). */
@@ -169,6 +171,8 @@ export function textOf(node: unknown): string {
  * @param path - The file path as stored in the content map (with or without a
  *   leading slash).
  * @param options.slugify - Slugify function used per path segment.
+ * @param options.slugifyPath - Optional map from a Note path to its URL path;
+ *   takes precedence over `slugify` when given.
  * @param options.urlPrefix - Optional prefix prepended to the URL (e.g. "/docs").
  * @param options.anchor - Optional, already slugged heading anchor.
  * @returns A URL starting with `/`, e.g. `/docs/folder/note#some-heading`.
@@ -177,16 +181,19 @@ export function slugifyUrl(
   path: string,
   options: {
     slugify: (text: string) => string;
+    slugifyPath?: SlugifyPath | undefined;
     urlPrefix?: string;
     anchor?: string;
   },
 ): string {
-  const base = path.replace(/\.mdx?$/, "");
-  const slug = base
-    .split("/")
-    .filter(Boolean)
-    .map((part) => options.slugify(part))
-    .join("/");
+  const slug = options.slugifyPath
+    ? options.slugifyPath(path)
+    : path
+        .replace(/\.mdx?$/, "")
+        .split("/")
+        .filter(Boolean)
+        .map((part) => options.slugify(part))
+        .join("/");
 
   const trimmedPrefix = options.urlPrefix?.replace(/^\/+|\/+$/g, "");
   const prefixPart = trimmedPrefix ? `${trimmedPrefix}/` : "";

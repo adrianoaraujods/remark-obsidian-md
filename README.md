@@ -104,6 +104,7 @@ import type { RemarkObsidianMdOptions } from "remark-obsidian-md";
 | :--------------------------------- | :------------------------------------------ | :------------------- | :------------------------------------------------------------------------------------------------------------ |
 | `resolver`                         | `Resolver`                                 | empty map            | Resolves Link Targets: `filesystemResolver(vault)` or `mapResolver(map)`. Without one, nothing resolves.       |
 | `slugify`                          | `(text: string) => string`                 | built-in slugify     | Converts file path segments to URL segments. Symbols after a word are spelled out (`C++` → `c-plus-plus`, `C#` → `c-sharp`). |
+| `slugifyPath`                      | `(path: string) => string`                 | –                    | Maps a Note path to the URL path it is published under. Use `createSlugifyPath` to keep Notes that slugify alike apart. |
 | `urlPrefix`                        | `string`                                   | `""`                 | Prepended to every generated URL (e.g. `"/docs"`).                                                             |
 | `wikiLinks.unresolvedStrategy`     | `"link" \| "plain"`                         | `"link"`             | `"link"` renders `<a class="is-unresolved">`; `"plain"` renders the label as text.                             |
 | `wikiLinks.slugger`                | `(text: string) => string`                 | GitHub-style slugs    | Slugs heading anchors.                                                                                        |
@@ -131,6 +132,28 @@ use(remarkObsidianMd, {
 
 The built-in `slugify` spells `+` and `#` that follow a word, so `C++.md` → `c-plus-plus` and `C.md` → `c` get distinct URLs. It is not injective in general: names that differ only in other punctuation (say `A B.md` and `A-B.md`) still collide, and a site generator that requires unique page slugs will reject them — pass your own `slugify` when a vault has such names.
 
+### Unique slugs
+
+`createSlugifyPath` turns a list of Note paths into a `(path) => slug` map that gives every Note its own URL, even when two names slugify alike (`Sebá.md` and `Sebã.md` both want `seba`). The first Note of a colliding group keeps the plain slug, the others get `-2`, `-3`, …; paths are sorted, so the assignment does not depend on scan order. An `index` Note is published under its folder.
+
+```ts
+import { createSlugifyPath, filesystemResolver } from "remark-obsidian-md";
+
+const resolver = filesystemResolver("./vault");
+const slugifyPath = createSlugifyPath(resolver.paths ?? []);
+
+use(remarkObsidianMd, { resolver, slugifyPath });
+```
+
+Pass the same map to your site generator's page slugs, so a link and the page it points at always agree. `getFrontmatter` takes it too:
+
+```ts
+const frontmatter = getFrontmatter(page.data.frontmatter, {
+  resolver,
+  slugifyPath,
+});
+```
+
 ## Per-feature plugins
 
 Each per-feature plugin takes its own options and can be composed by hand instead of the default:
@@ -149,7 +172,7 @@ import {
 
 | Plugin                     | Options                                                                                |
 | :------------------------- | :------------------------------------------------------------------------------------- |
-| `remarkObsidianWikiLinks`  | `resolver`, `slugify`, `slugger`, `urlPrefix`, `unresolvedStrategy`                     |
+| `remarkObsidianWikiLinks`  | `resolver`, `slugify`, `slugifyPath`, `slugger`, `urlPrefix`, `unresolvedStrategy`      |
 | `remarkObsidianEmbeds`    | the Wiki Links options plus `readNote`, `maxDepth`                                     |
 | `remarkObsidianHighlights` | –                                                                                       |
 | `remarkObsidianCallouts`   | `types`                                                                                 |
@@ -237,6 +260,7 @@ const frontmatter = getFrontmatter(page.data.frontmatter, {
   resolver, // the same Resolver you pass to the plugin
   types: filesystemPropertyTypes("./vault"), // optional, reads .obsidian/types.json
   slugify, // optional
+  slugifyPath, // optional, maps a Note path to the URL it is published under
   urlPrefix: "/docs", // optional
   ignoredKeys: ["secret"], // optional
 });
@@ -247,7 +271,7 @@ const frontmatter = getFrontmatter(page.data.frontmatter, {
 
 ## Types
 
-This package is fully typed with [TypeScript](https://www.typescriptlang.org). It exports `RemarkObsidianMdOptions`, `Resolver`, `ResolvedTarget`, `NoteMetadata`, `MapResolverEntry`, `FilesystemResolverOptions`, `DuplicatePolicy`, `UnresolvedStrategy`, `WikiLinksOptions`, `WikiLinksPluginOptions`, `EmbedsOptions`, `EmbedsPluginOptions`, `BlockIdsOptions`, `CalloutsPluginOptions`, `CalloutTypeDefinition`, `GetFrontmatterOptions`, `FrontmatterLink`, `FrontmatterDate`, `PropertyTypes` and `filesystemPropertyTypes`.
+This package is fully typed with [TypeScript](https://www.typescriptlang.org). It exports `RemarkObsidianMdOptions`, `Resolver`, `ResolvedTarget`, `NoteMetadata`, `MapResolverEntry`, `FilesystemResolverOptions`, `DuplicatePolicy`, `UnresolvedStrategy`, `WikiLinksOptions`, `WikiLinksPluginOptions`, `EmbedsOptions`, `EmbedsPluginOptions`, `BlockIdsOptions`, `CalloutsPluginOptions`, `CalloutTypeDefinition`, `GetFrontmatterOptions`, `FrontmatterLink`, `FrontmatterDate`, `PropertyTypes`, `SlugifyPath`, `filesystemPropertyTypes` and `createSlugifyPath`.
 
 The custom `embed` and `callout` nodes are registered in the `@types/mdast` maps via module augmentation.
 
@@ -259,7 +283,8 @@ Version 3.0.0 is a breaking rewrite. The output is framework-agnostic MDAST — 
 - **`enable*` flags removed.** `enableWikiLinks`, `enableEmbeds`, `enableHighlights` etc. are gone. To omit a feature, compose the per-feature plugins yourself instead of the composed default.
 - **`customProps` removed.** Nodes no longer take injected attributes from options. Custom nodes carry `data.hName` / `data.hProperties` (standard `mdast-util-to-hast` mechanism); post-process the MDAST to tweak properties.
 - **`include` node removed.** Embeds are now the custom `embed` node whose `children` hold the transcluded content, so downstream plugins process it. Both custom nodes render through `remark-rehype` without a companion plugin.
-- **`getFrontmatter` options changed.** `{ contentMap, urlPrefix, ignoredKeys }` is now `{ resolver, slugify?, urlPrefix?, ignoredKeys?, types? }` — pass the same Resolver you pass to the plugin. Unresolved wiki links now come back as `{ label, unresolved: true }` instead of a bare string, so consumers can style them like Obsidian; markdown links (`[label](url)`) are resolved to `{ url, label }` as external references; whole-value ISO dates come back as `{ date, kind }` objects instead of bare strings.
+- **`getFrontmatter` options changed.** `{ contentMap, urlPrefix, ignoredKeys }` is now `{ resolver, slugify?, slugifyPath?, urlPrefix?, ignoredKeys?, types? }` — pass the same Resolver you pass to the plugin. Unresolved wiki links now come back as `{ label, unresolved: true }` instead of a bare string, so consumers can style them like Obsidian; markdown links (`[label](url)`) are resolved to `{ url, label }` as external references; whole-value ISO dates come back as `{ date, kind }` objects instead of bare strings.
+- **Optional `slugifyPath`.** The new `slugifyPath` option (and `createSlugifyPath` helper) gives Notes that slugify alike distinct URLs, e.g. `Sebá.md` → `seba` and `Sebã.md` → `seba-2`. It is opt-in: without it, URLs are unchanged. With it, an `index` Note is linked under its folder (`/notes` instead of `/notes/index`).
 - **Callouts are back.** 2.0.0 removed them; 3.0.0 renders Obsidian's reading-view DOM and the bundled `styles/*.css` is gone (the `styles` export was removed with it). Icon hooks are `.callout-title-icon[data-icon]`.
 - **URLs for symbol-bearing Notes changed.** The built-in `slugify` now spells `+`/`#` that follow a word: `C++.md` (`c-plus-plus`) and `C#.md` (`c-sharp`) no longer collide with `C.md` (`c`). Other punctuation is still dropped, so a vault whose names differ only in punctuation needs a custom `slugify`.
 - **New syntax.** Comments (`%%…%%`), Block IDs / Block References (`^id`), inline Footnotes (`^[text]`), aliases, nested-heading Subpaths and Callout folding are now supported.

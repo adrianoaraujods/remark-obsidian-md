@@ -1,5 +1,5 @@
 import type { PropertyTypes } from "./property-types.js";
-import type { Resolver } from "./types.js";
+import type { Resolver, SlugifyPath } from "./types.js";
 import {
   anchorFor,
   githubSlugger,
@@ -33,6 +33,8 @@ export type FrontmatterDate = {
 export type GetFrontmatterOptions = {
   resolver: Resolver;
   slugify?: (text: string) => string;
+  /** Maps a Note path to the URL path it is published under. */
+  slugifyPath?: SlugifyPath | undefined;
   urlPrefix?: string;
   ignoredKeys?: string[];
   /**
@@ -209,6 +211,7 @@ function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
 
   const resolvedUrl = slugifyUrl(resolved.path, {
     slugify: slugifyFn,
+    slugifyPath: options.slugifyPath,
     ...(options.urlPrefix ? { urlPrefix: options.urlPrefix } : {}),
     ...(anchor ? { anchor } : {}),
   });

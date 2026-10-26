@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import remarkObsidianMd from "../src/index.js";
 import { mapResolver } from "../src/resolver.js";
+import { createSlugifyPath } from "../src/slugs.js";
 import type { RemarkObsidianMdOptions } from "../src/types.js";
 
 const resolver = mapResolver({
@@ -50,6 +51,30 @@ describe("remarkObsidianMd", () => {
     expect(tree.children[0]).toMatchObject({
       type: "paragraph",
       children: [{ type: "link", url: "/docs/FOLDER/NESTED" }],
+    });
+  });
+
+  it("publishes a Note under the slug of a slugifyPath map", () => {
+    const notes = mapResolver({
+      Sebá: { path: "/Localizações/Sebá.md" },
+      Sebã: { path: "/Localizações/Sebã.md" },
+    });
+    const processor = unified()
+      .use(remarkParse)
+      .use(remarkGfm)
+      .use(remarkObsidianMd, {
+        resolver: notes,
+        slugifyPath: createSlugifyPath([
+          "/Localizações/Sebá.md",
+          "/Localizações/Sebã.md",
+        ]),
+      });
+
+    const tree = processor.runSync(processor.parse("[[Sebã]]"));
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [{ type: "link", url: "/localizacoes/seba-2" }],
     });
   });
 

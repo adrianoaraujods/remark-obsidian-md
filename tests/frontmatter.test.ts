@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { getFrontmatter } from "../src/frontmatter";
 import { mapResolver } from "../src/resolver";
+import { createSlugifyPath } from "../src/slugs";
 
 const resolver = mapResolver({
   "Wiki Link": { path: "/Wiki Link.md", title: "Wiki Link" },
@@ -241,6 +242,26 @@ describe("getFrontmatter", () => {
         { resolver, types: { Escrito: "datetime" } },
       ),
     ).toEqual({ Escrito: { date: "2026-02-17T11:33", kind: "datetime" } });
+  });
+
+  it("publishes a frontmatter link under the slug of a slugifyPath map", () => {
+    const notes = mapResolver({
+      Sebá: { path: "/Localizações/Sebá.md" },
+      Sebã: { path: "/Localizações/Sebã.md" },
+    });
+
+    expect(
+      getFrontmatter(
+        { related: "[[Sebã]]" },
+        {
+          resolver: notes,
+          slugifyPath: createSlugifyPath([
+            "/Localizações/Sebá.md",
+            "/Localizações/Sebã.md",
+          ]),
+        },
+      ),
+    ).toEqual({ related: { url: "/localizacoes/seba-2", label: "Sebã" } });
   });
 
   it("ignores keys listed in ignoredKeys", () => {

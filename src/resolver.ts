@@ -35,25 +35,36 @@ export function filesystemResolver(
   options: FilesystemResolverOptions = {},
 ): Resolver {
   const policy = options.duplicatePolicy ?? "root";
-  let index: Map<string, ResolvedTarget> | undefined;
+  let scan: Scan | undefined;
+
+  const scanned = () => (scan ??= buildIndex(vault, policy));
 
   return {
     resolve(target): ResolvedTarget {
-      index ??= buildIndex(vault, policy);
+      const { index } = scanned();
       return (
         index.get(normalizeTarget(target)) ?? { kind: "note", exists: false }
       );
     },
+    get paths(): readonly string[] {
+      return scanned().paths;
+    },
   };
 }
 
-function buildIndex(
-  vault: string,
-  policy: DuplicatePolicy,
-): Map<string, ResolvedTarget> {
+type Scan = {
+  index: Map<string, ResolvedTarget>;
+  paths: string[];
+};
+
+function buildIndex(vault: string, policy: DuplicatePolicy): Scan {
   const winners = new Map<string, ScanEntry>();
+  const paths: string[] = [];
 
   for (const entry of walk(vault, vault)) {
+    if (entry.target.exists && entry.target.kind === "note") {
+      paths.push(entry.target.path);
+    }
     for (const name of entry.names) {
       const key = normalizeTarget(name);
       if (!key) continue;
@@ -62,7 +73,10 @@ function buildIndex(
     }
   }
 
-  return new Map([...winners].map(([key, entry]) => [key, entry.target]));
+  return {
+    index: new Map([...winners].map(([key, entry]) => [key, entry.target])),
+    paths: paths.sort(),
+  };
 }
 
 function* walk(dir: string, root: string): Generator<ScanEntry> {

@@ -23,6 +23,7 @@ export function remarkObsidianMd(
     resolver: options.resolver,
     slugger: options.wikiLinks?.slugger,
     slugify: options.slugify,
+    slugifyPath: options.slugifyPath,
     urlPrefix: options.urlPrefix,
     unresolvedStrategy: options.wikiLinks?.unresolvedStrategy,
   });
@@ -89,6 +90,7 @@ export {
   type MapResolverEntry,
   mapResolver,
 } from "./resolver.js";
+export { createSlugifyPath } from "./slugs.js";
 export type {
   BlockIdsOptions,
   CalloutsPluginOptions,
@@ -99,6 +101,7 @@ export type {
   RemarkObsidianMdOptions,
   ResolvedTarget,
   Resolver,
+  SlugifyPath,
   UnresolvedStrategy,
   WikiLinksOptions,
   WikiLinksPluginOptions,

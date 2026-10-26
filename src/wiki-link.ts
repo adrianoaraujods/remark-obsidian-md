@@ -148,6 +148,7 @@ export function transformWikiLinks(tree: Root, context: WikiLinkContext): void {
         type: "link",
         url: slugifyUrl(resolved.path, {
           slugify: context.slugify,
+          slugifyPath: context.slugifyPath,
           urlPrefix: context.urlPrefix,
           ...(anchor ? { anchor } : {}),
         }),
@@ -276,6 +277,7 @@ export function defaultWikiLinkContext(
     resolver: options.resolver ?? mapResolver({}),
     slugger: options.slugger ?? githubSlugger,
     slugify: options.slugify ?? slugify,
+    slugifyPath: options.slugifyPath,
     urlPrefix: options.urlPrefix ?? "",
     unresolvedStrategy: options.unresolvedStrategy ?? "link",
   };

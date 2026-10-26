@@ -31,6 +31,15 @@ describe("filesystemResolver", () => {
     });
   });
 
+  it("exposes the Note paths it scanned", () => {
+    const resolver = filesystemResolver(FIXTURES);
+
+    expect(resolver.paths).toEqual(
+      expect.arrayContaining(["/Aliased.md", "/folder/Nested.md"]),
+    );
+    expect(resolver.paths).not.toContain("/Image.png");
+  });
+
   it("matches case-insensitively and with or without the .md extension", () => {
     const resolver = filesystemResolver(FIXTURES);
 

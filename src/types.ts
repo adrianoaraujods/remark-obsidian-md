@@ -13,9 +13,17 @@ export type ResolvedTarget =
 
 export type Resolver = {
   resolve(target: string): ResolvedTarget;
+  /** The Note paths a resolver knows about, when it scanned a Vault. */
+  paths?: readonly string[] | undefined;
 };
 
 export type UnresolvedStrategy = "link" | "plain";
+
+/**
+ * Maps a Note path to the URL path it is published under. Lets a consumer
+ * give Notes that slugify alike (e.g. `Sebá.md` and `Sebã.md`) distinct URLs.
+ */
+export type SlugifyPath = (path: string) => string;
 
 export type WikiLinksOptions = {
   slugger?: ((text: string) => string) | undefined;
@@ -37,6 +45,7 @@ export type EmbedsOptions = {
 export type RemarkObsidianMdOptions = {
   resolver?: Resolver | undefined;
   slugify?: ((text: string) => string) | undefined;
+  slugifyPath?: SlugifyPath | undefined;
   urlPrefix?: string | undefined;
   wikiLinks?: WikiLinksOptions | undefined;
   blockIds?: BlockIdsOptions | undefined;
@@ -48,6 +57,7 @@ export type WikiLinksPluginOptions = {
   resolver?: Resolver | undefined;
   slugger?: ((text: string) => string) | undefined;
   slugify?: ((text: string) => string) | undefined;
+  slugifyPath?: SlugifyPath | undefined;
   urlPrefix?: string | undefined;
   unresolvedStrategy?: UnresolvedStrategy | undefined;
 };
@@ -58,6 +68,7 @@ export type WikiLinkContext = {
   resolver: Resolver;
   slugger: (text: string) => string;
   slugify: (text: string) => string;
+  slugifyPath?: SlugifyPath | undefined;
   urlPrefix: string;
   unresolvedStrategy: UnresolvedStrategy;
   /** Current Note's Block IDs plus a reader for cross-Note lookups. */
