@@ -1,3 +1,4 @@
+import type { PropertyTypes } from "./property-types.js";
 import type { Resolver } from "./types.js";
 import {
   anchorFor,
@@ -19,11 +20,29 @@ export type FrontmatterLink =
    */
   | { url?: undefined; label: string; unresolved: true };
 
+/**
+ * A whole-value ISO date (`2025-02-03`) or datetime (`2026-02-17T11:33`).
+ * The ISO string is preserved verbatim — no re-serialisation, no timezone
+ * arithmetic — so consumers can format it however they like.
+ */
+export type FrontmatterDate = {
+  date: string;
+  kind: "date" | "datetime";
+};
+
 export type GetFrontmatterOptions = {
   resolver: Resolver;
   slugify?: (text: string) => string;
   urlPrefix?: string;
   ignoredKeys?: string[];
+  /**
+   * Obsidian's property type map (see {@link filesystemPropertyTypes}).
+   * Properties declared as `date`/`datetime` are tagged according to their
+   * declared type; properties declared as any other type are never tagged.
+   * Untyped properties are tagged by shape when the whole value is a valid
+   * ISO date/datetime.
+   */
+  types?: PropertyTypes | undefined;
 };
 
 /**
@@ -33,7 +52,10 @@ export type GetFrontmatterOptions = {
  * resolved to `{ url, label }` objects; wiki links whose target has no page
  * come back as `{ label, unresolved: true }` so consumers can style them like
  * Obsidian does. Markdown links are treated as external references: the
- * target is emitted verbatim, never resolved against the vault.
+ * target is emitted verbatim, never resolved against the vault. Whole-value
+ * ISO dates come back as `{ date, kind }` — the ISO string verbatim plus its
+ * kind — so consumers can format them; formatting itself is the consumer's
+ * job.
  *
  * A string value is resolved to a `{ url, label }` link **only when the whole
  * value is a single link** (e.g. `"[[Note]]"`, `"[[Note|Alias]]"`,
@@ -52,10 +74,69 @@ export function getFrontmatter(
 
   for (const [key, value] of Object.entries(frontmatter)) {
     if (ignoredKeys.includes(key)) continue;
-    result[key] = resolveValue(value, options);
+    const date = dateValueFor(value, options.types?.[key]);
+    result[key] = date ?? resolveValue(value, options);
   }
 
   return result;
+}
+
+const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
+const ISO_DATETIME_REGEX =
+  /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/;
+
+/** Calendar-aware: `2026-02-30` and other impossible dates are not dates. */
+function isoDateKind(value: string): "date" | "datetime" | undefined {
+  const dateMatch = ISO_DATE_REGEX.exec(value);
+  if (dateMatch) {
+    return isCalendarDate(dateMatch) ? "date" : undefined;
+  }
+
+  const timeMatch = ISO_DATETIME_REGEX.exec(value);
+  if (!timeMatch) return undefined;
+  const [, , , , hour, minute, second] = timeMatch;
+  if (Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) {
+    return undefined;
+  }
+  return isCalendarDate(timeMatch) ? "datetime" : undefined;
+}
+
+function isCalendarDate(match: RegExpExecArray): boolean {
+  const [, year, month, day] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  return (
+    date.getUTCFullYear() === Number(year) &&
+    date.getUTCMonth() === Number(month) - 1 &&
+    date.getUTCDate() === Number(day)
+  );
+}
+
+/**
+ * Tags whole-value dates for **top-level keys only**, like Obsidian: a
+ * property declared `date`/`datetime` in `types` is tagged according to its
+ * declared type (and left alone when the value does not match); an untyped
+ * property is tagged by shape; a property declared as any other type is never
+ * tagged. Arrays, nested objects and non-string values are left alone —
+ * Obsidian's date properties are single-valued.
+ */
+function dateValueFor(
+  value: unknown,
+  declared: string | undefined,
+): FrontmatterDate | undefined {
+  if (typeof value !== "string") return undefined;
+  if (
+    declared !== undefined &&
+    declared !== "date" &&
+    declared !== "datetime"
+  ) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  const kind = declared ?? isoDateKind(trimmed);
+  if (kind === undefined || isoDateKind(trimmed) !== kind) return undefined;
+
+  return { date: trimmed, kind };
 }
 
 const MARKDOWN_LINK_REGEX = /^\[([^\]]+)\]\((.*)\)$/;

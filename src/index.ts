@@ -72,11 +72,16 @@ export { remarkObsidianComments } from "./comments.js";
 export { remarkObsidianEmbeds } from "./embed.js";
 export { remarkObsidianFootnotes } from "./footnotes.js";
 export type {
+  FrontmatterDate,
   FrontmatterLink,
   GetFrontmatterOptions,
 } from "./frontmatter.js";
 export { getFrontmatter } from "./frontmatter.js";
 export { remarkObsidianHighlights } from "./highlights.js";
+export {
+  filesystemPropertyTypes,
+  type PropertyTypes,
+} from "./property-types.js";
 export {
   type DuplicatePolicy,
   type FilesystemResolverOptions,

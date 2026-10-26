@@ -222,22 +222,30 @@ Instead of rendering a built-in frontmatter component, the plugin exposes a pure
 
 Wiki links (`[[Note]]`), URLs and markdown links (`[label](https://example.com)`) are resolved to `{ url, label }` objects when the whole string value is a single link. Markdown links are treated as external references: the target is emitted verbatim, never resolved against the vault. Arrays and nested objects are resolved recursively; wiki links whose target has no page in the vault come back as `{ label, unresolved: true }` so consumers can style them like Obsidian does; all other value types are returned unchanged.
 
+Whole-value ISO dates and datetimes come back as `{ date, kind: "date" | "datetime" }` — the ISO string preserved verbatim, so formatting (locale-dependent) stays the consumer's job. A property declared `date`/`datetime` in Obsidian is tagged according to its declared type; an untyped property is tagged by shape; a property declared as any other type is never tagged. Only top-level scalar values are tagged — arrays and nested objects are left alone, like Obsidian's single-valued date properties. Pass the type map with `filesystemPropertyTypes`:
+
 ```ts
-import { getFrontmatter } from "remark-obsidian-md";
+import {
+  filesystemPropertyTypes,
+  filesystemResolver,
+  getFrontmatter,
+} from "remark-obsidian-md";
 
 const frontmatter = getFrontmatter(page.data.frontmatter, {
   resolver, // the same Resolver you pass to the plugin
+  types: filesystemPropertyTypes("./vault"), // optional, reads .obsidian/types.json
   slugify, // optional
   urlPrefix: "/docs", // optional
   ignoredKeys: ["secret"], // optional
 });
 
 // frontmatter.related === { url: "/docs/my-note", label: "My Note" }
+// frontmatter.Escrito === { date: "2026-02-17T11:33", kind: "datetime" }
 ```
 
 ## Types
 
-This package is fully typed with [TypeScript](https://www.typescriptlang.org). It exports `RemarkObsidianMdOptions`, `Resolver`, `ResolvedTarget`, `NoteMetadata`, `MapResolverEntry`, `FilesystemResolverOptions`, `DuplicatePolicy`, `UnresolvedStrategy`, `WikiLinksOptions`, `WikiLinksPluginOptions`, `EmbedsOptions`, `EmbedsPluginOptions`, `BlockIdsOptions`, `CalloutsPluginOptions`, `CalloutTypeDefinition`, `GetFrontmatterOptions` and `FrontmatterLink`.
+This package is fully typed with [TypeScript](https://www.typescriptlang.org). It exports `RemarkObsidianMdOptions`, `Resolver`, `ResolvedTarget`, `NoteMetadata`, `MapResolverEntry`, `FilesystemResolverOptions`, `DuplicatePolicy`, `UnresolvedStrategy`, `WikiLinksOptions`, `WikiLinksPluginOptions`, `EmbedsOptions`, `EmbedsPluginOptions`, `BlockIdsOptions`, `CalloutsPluginOptions`, `CalloutTypeDefinition`, `GetFrontmatterOptions`, `FrontmatterLink`, `FrontmatterDate`, `PropertyTypes` and `filesystemPropertyTypes`.
 
 The custom `embed` and `callout` nodes are registered in the `@types/mdast` maps via module augmentation.
 
@@ -249,7 +257,7 @@ Version 3.0.0 is a breaking rewrite. The output is framework-agnostic MDAST — 
 - **`enable*` flags removed.** `enableWikiLinks`, `enableEmbeds`, `enableHighlights` etc. are gone. To omit a feature, compose the per-feature plugins yourself instead of the composed default.
 - **`customProps` removed.** Nodes no longer take injected attributes from options. Custom nodes carry `data.hName` / `data.hProperties` (standard `mdast-util-to-hast` mechanism); post-process the MDAST to tweak properties.
 - **`include` node removed.** Embeds are now the custom `embed` node whose `children` hold the transcluded content, so downstream plugins process it. Both custom nodes render through `remark-rehype` without a companion plugin.
-- **`getFrontmatter` options changed.** `{ contentMap, urlPrefix, ignoredKeys }` is now `{ resolver, slugify?, urlPrefix?, ignoredKeys? }` — pass the same Resolver you pass to the plugin. Unresolved wiki links now come back as `{ label, unresolved: true }` instead of a bare string, so consumers can style them like Obsidian, and markdown links (`[label](url)`) are resolved to `{ url, label }` as external references.
+- **`getFrontmatter` options changed.** `{ contentMap, urlPrefix, ignoredKeys }` is now `{ resolver, slugify?, urlPrefix?, ignoredKeys?, types? }` — pass the same Resolver you pass to the plugin. Unresolved wiki links now come back as `{ label, unresolved: true }` instead of a bare string, so consumers can style them like Obsidian; markdown links (`[label](url)`) are resolved to `{ url, label }` as external references; whole-value ISO dates come back as `{ date, kind }` objects instead of bare strings.
 - **Callouts are back.** 2.0.0 removed them; 3.0.0 renders Obsidian's reading-view DOM and the bundled `styles/*.css` is gone (the `styles` export was removed with it). Icon hooks are `.callout-title-icon[data-icon]`.
 - **New syntax.** Comments (`%%…%%`), Block IDs / Block References (`^id`), inline Footnotes (`^[text]`), aliases, nested-heading Subpaths and Callout folding are now supported.
 - **`remark-gfm` is a peer dependency.** Install it and put it before this plugin in the pipeline.
