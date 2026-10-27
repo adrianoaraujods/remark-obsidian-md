@@ -54,6 +54,10 @@ _Avoid_: mark, marker, selection
 Text wrapped in `%%…%%` and omitted from rendered output.
 _Avoid_: annotation, note
 
+**Footnote**:
+A short note written inline at the point it annotates, using `^[text]`, whose content is parsed as inline Markdown.
+_Avoid_: endnote, reference
+
 ## Blocks
 
 **Block ID**:
@@ -69,10 +73,6 @@ A blockquote whose first line begins `> [!type]`, rendered as a styled, optional
 _Avoid_: admonition, alert, aside
 
 ## Metadata
-
-**Footnote**:
-A short note written inline at the point it annotates, using `^[text]`.
-_Avoid_: endnote, reference
 
 **Frontmatter**:
 The YAML metadata block at the top of a Note, surfaced in Obsidian as Properties.
