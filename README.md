@@ -221,7 +221,7 @@ A trailing `^id` (charset `[A-Za-z0-9-]`, preceded by whitespace) is stripped fr
 
 ### Inline Footnotes
 
-`^[text]` renders as `<sup>text</sup>` with no footnote section — a deliberate divergence from Obsidian (no definitions, no numbering).
+`^[text]` renders as `<sup>text</sup>` with no footnote section — a deliberate divergence from Obsidian (no definitions, no numbering). Its content is parsed as inline Markdown with the Note's own syntax: `^[[[Note|Alias]]]` publishes as `<sup><a href="…">Alias</a></sup>`, and bold, italic, code, Highlights and Comments work inside it too. The content ends at the `]` that matches its opening `[`, stays on one line, an unclosed Footnote stays literal text, a Footnote never nests inside another one, and an Embed inside a Footnote stays literal.
 
 ## Deliberately unsupported
 
