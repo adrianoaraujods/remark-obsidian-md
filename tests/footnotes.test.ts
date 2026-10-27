@@ -103,6 +103,16 @@ describe("Inline Footnotes", () => {
     });
   });
 
+  it("parses a footnote's indented content as inline Markdown", () => {
+    const tree = process("Note^[   *em*]");
+    const footnote = footnoteOf(tree);
+
+    expect(footnote.type).toBe("obsidianFootnote");
+    expect(footnote.children).toMatchObject([
+      { type: "emphasis", children: [{ type: "text", value: "em" }] },
+    ]);
+  });
+
   it("publishes a plain footnote as a text node without a position", () => {
     const tree = process("Note^[details]");
 

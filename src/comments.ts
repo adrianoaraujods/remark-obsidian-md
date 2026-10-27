@@ -1,4 +1,4 @@
-import type { Literal, Parent, Root, Text } from "mdast";
+import type { Literal, Node, Parent, Root, Text } from "mdast";
 import type {
   CompileContext,
   Extension as FromMarkdownExtension,
@@ -139,6 +139,15 @@ function isClosed(raw: string): boolean {
 
 type Range = { start: number; end: number };
 
+/**
+ * A node that carries children: an mdast parent, or a Footnote container.
+ * The Footnote holds phrasing content, which mdast counts as root content
+ * too.
+ */
+function hasChildren(node: Node): node is Parent {
+  return "children" in node;
+}
+
 export function configureComments(processor: Processor): (tree: Root) => void {
   addExtension(processor, "micromarkExtensions", commentSyntax);
   addExtension(processor, "fromMarkdownExtensions", commentFromMarkdown);
@@ -172,7 +181,7 @@ function collectEmbeds(parent: Parent): Parent[] {
   for (const child of parent.children) {
     if (child.type === "embed") {
       embeds.push(child);
-    } else if ("children" in child) {
+    } else if (hasChildren(child)) {
       embeds.push(...collectEmbeds(child));
     }
   }
@@ -279,7 +288,7 @@ function removeRanges(parent: Parent, ranges: Range[]): void {
       continue;
     }
 
-    if ("children" in child) {
+    if (hasChildren(child)) {
       removeRanges(child, ranges);
       if (child.children.length === 0) parent.children.splice(index, 1);
     }
@@ -314,7 +323,7 @@ function removeComments(parent: Parent): boolean {
 
     if (child.type === "embed") continue;
 
-    if ("children" in child && removeComments(child)) {
+    if (hasChildren(child) && removeComments(child)) {
       parent.children.splice(child.children.length === 0 ? index : index + 1);
       return true;
     }

@@ -1,4 +1,4 @@
-import type { Literal, Parent, PhrasingContent, Root } from "mdast";
+import type { PhrasingContent, Root } from "mdast";
 import type {
   CompileContext,
   Extension as FromMarkdownExtension,
@@ -20,30 +20,11 @@ import { visit } from "unist-util-visit";
 
 import { embedSyntax } from "./embed.js";
 import { addExtension } from "./extensions.js";
+import type { ObsidianFootnoteNode } from "./types.js";
 
 declare module "micromark-util-types" {
   interface TokenTypeMap {
     obsidianFootnote: "obsidianFootnote";
-  }
-}
-
-/**
- * Intermediate node for `^[text]`. It never reaches the output: a Footnote
- * whose content holds elements becomes a parent carrying the parsed content,
- * and a Footnote whose content is plain text becomes a text node carrying
- * `hName: "sup"`.
- */
-interface ObsidianFootnoteNode extends Literal {
-  type: "obsidianFootnote";
-}
-
-declare module "mdast" {
-  interface PhrasingContentMap {
-    obsidianFootnote: ObsidianFootnoteNode;
-  }
-
-  interface RootContentMap {
-    obsidianFootnote: ObsidianFootnoteNode;
   }
 }
 
@@ -130,14 +111,15 @@ export function footnoteFromMarkdown(
         // Plain text keeps publishing as a text node; content that holds
         // elements becomes a parent carrying the parsed content.
         if (children && !isPlainText(children)) {
-          const container = node as ObsidianFootnoteNode & Parent;
-          container.children = children;
-          container.data = { hName: "sup", hProperties: {} };
+          node.children = children;
+          node.data = { hName: "sup", hProperties: {} };
 
           // Every node of the parsed content points at the Footnote's content
           // range: the nested parse's own positions are relative to it.
-          visit(container, (child) => {
-            if (child === container) return;
+          // ponytail: no per-node positions inside a Footnote; offset the
+          // nested parse's positions by the content's start offset.
+          visit(node, (child) => {
+            if (child === node) return;
             child.position = contentPosition(token);
           });
         }
@@ -157,6 +139,8 @@ export function footnoteFromMarkdown(
  *
  * The content is inline only when it parses as a single paragraph; anything
  * else (a heading, a list) is block Markdown and stays literal text.
+ * ponytail: inline content only; parse the content as a document and take its
+ * phrasing children when block content is wanted.
  */
 function parseContent(
   content: string,
@@ -171,10 +155,11 @@ function parseContent(
   const mdastExtensions =
     (data.fromMarkdownExtensions as FromMarkdownExtension[] | undefined) ?? [];
 
-  // The content is inline, so it is parsed as if it did not start at the
-  // beginning of a line: a leading `%%` opens an inline Comment, not a block
-  // Comment. The space is dropped by the parse.
-  const tree = fromMarkdown(` ${content}`, {
+  // A `%%` at the start of a line opens a block Comment; the space makes it
+  // open an inline one instead. The space is dropped by the parse.
+  const source = content.startsWith("%%") ? ` ${content}` : content;
+
+  const tree = fromMarkdown(source, {
     extensions,
     mdastExtensions,
   });

@@ -1,4 +1,4 @@
-import type { Literal, Parent } from "mdast";
+import type { Literal, Parent, PhrasingContent } from "mdast";
 
 export type NoteMetadata = {
   title: string;
@@ -110,6 +110,18 @@ export interface EmbedNode extends Parent {
 }
 
 /**
+ * Intermediate node for `^[text]`. It never reaches the output: a Footnote
+ * whose content holds elements becomes a parent carrying the parsed content,
+ * and a Footnote whose content is plain text becomes a text node carrying
+ * `hName: "sup"`. `value` holds the raw content; `children` holds the parsed
+ * content once the content holds elements.
+ */
+export interface ObsidianFootnoteNode extends Literal {
+  type: "obsidianFootnote";
+  children?: PhrasingContent[];
+}
+
+/**
  * A Callout. Unlike `embed`, its wrapper structure has no native MDAST
  * equivalent, so title/content wrappers use the internal `calloutPart` node.
  */
@@ -127,11 +139,13 @@ declare module "mdast" {
   interface PhrasingContentMap {
     wikiLink: WikiLinkNode;
     embed: EmbedNode;
+    obsidianFootnote: ObsidianFootnoteNode;
   }
 
   interface RootContentMap {
     wikiLink: WikiLinkNode;
     embed: EmbedNode;
+    obsidianFootnote: ObsidianFootnoteNode;
     callout: CalloutNode;
     calloutPart: CalloutPartNode;
   }
