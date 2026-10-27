@@ -103,8 +103,8 @@ import type { RemarkObsidianMdOptions } from "remark-obsidian-md";
 | Option                             | Type                                        | Default              | Description                                                                                                   |
 | :--------------------------------- | :------------------------------------------ | :------------------- | :------------------------------------------------------------------------------------------------------------ |
 | `resolver`                         | `Resolver`                                 | empty map            | Resolves Link Targets: `filesystemResolver(vault)` or `mapResolver(map)`. Without one, nothing resolves.       |
-| `slugify`                          | `(text: string) => string`                 | built-in slugify     | Converts file path segments to URL segments. Symbols after a word are spelled out (`C++` → `c-plus-plus`, `C#` → `c-sharp`). |
-| `slugifyPath`                      | `(path: string) => string`                 | –                    | Maps a Note path to the URL path it is published under. Use `createSlugifyPath` to keep Notes that slugify alike apart. |
+| `slugify`                          | `(text: string) => string`                 | built-in slugify     | Converts a path segment to a URL segment. Symbols after a word are spelled out (`C++` → `c-plus-plus`, `C#` → `c-sharp`). |
+| `slugifyPath`                      | `(path: string) => string`                 | –                    | Maps a Note path to the slug it is published under. Use `createSlugifyPath` to keep Notes that slugify alike apart. |
 | `urlPrefix`                        | `string`                                   | `""`                 | Prepended to every generated URL (e.g. `"/docs"`).                                                             |
 | `wikiLinks.unresolvedStrategy`     | `"link" \| "plain"`                         | `"link"`             | `"link"` renders `<a class="is-unresolved">`; `"plain"` renders the label as text.                             |
 | `wikiLinks.slugger`                | `(text: string) => string`                 | GitHub-style slugs    | Slugs heading anchors.                                                                                        |
@@ -134,7 +134,7 @@ The built-in `slugify` spells `+` and `#` that follow a word, so `C++.md` → `c
 
 ### Unique slugs
 
-`createSlugifyPath` turns a list of Note paths into a `(path) => slug` map that gives every Note its own URL, even when two names slugify alike (`Sebá.md` and `Sebã.md` both want `seba`). The first Note of a colliding group keeps the plain slug, the others get `-2`, `-3`, …; a slug another Note already owns is never taken, and paths are sorted, so the assignment does not depend on scan order. An `index` Note is published under its folder.
+`createSlugifyPath` turns a list of Note paths into a `(path) => slug` map that gives every Note its own URL, even when two names slugify alike (`Sebá.md` and `Sebã.md` both want `seba`). The first Note of a colliding group keeps the plain slug, the others get `-2`, `-3`, …; a slug another Note already owns is never taken, and paths are sorted, so the assignment does not depend on scan order. An `index` Note is published under its folder — unless a Note with that name exists, in which case it moves to `<folder>/index`. Pass `{ slugify }` to use another slugifier; the default is the built-in one.
 
 ```ts
 import { createSlugifyPath, filesystemResolver } from "remark-obsidian-md";
@@ -145,7 +145,7 @@ const slugifyPath = createSlugifyPath(resolver.paths);
 use(remarkObsidianMd, { resolver, slugifyPath });
 ```
 
-Pass the same map to your site generator's slugs, so a link and the Note it points at always agree. `getFrontmatter` takes it too:
+Pass the same map to your site generator, so a link and the Note it points at always agree. `getFrontmatter` takes it too:
 
 ```ts
 const frontmatter = getFrontmatter(page.data.frontmatter, {
@@ -260,7 +260,7 @@ const frontmatter = getFrontmatter(page.data.frontmatter, {
   resolver, // the same Resolver you pass to the plugin
   types: filesystemPropertyTypes("./vault"), // optional, reads .obsidian/types.json
   slugify, // optional
-  slugifyPath, // optional, maps a Note path to the URL it is published under
+  slugifyPath, // optional, maps a Note path to the slug it is published under
   urlPrefix: "/docs", // optional
   ignoredKeys: ["secret"], // optional
 });
@@ -271,7 +271,7 @@ const frontmatter = getFrontmatter(page.data.frontmatter, {
 
 ## Types
 
-This package is fully typed with [TypeScript](https://www.typescriptlang.org). It exports `RemarkObsidianMdOptions`, `Resolver`, `FilesystemResolver`, `ResolvedTarget`, `NoteMetadata`, `MapResolverEntry`, `FilesystemResolverOptions`, `DuplicatePolicy`, `UnresolvedStrategy`, `WikiLinksOptions`, `WikiLinksPluginOptions`, `EmbedsOptions`, `EmbedsPluginOptions`, `BlockIdsOptions`, `CalloutsPluginOptions`, `CalloutTypeDefinition`, `GetFrontmatterOptions`, `FrontmatterLink`, `FrontmatterDate`, `PropertyTypes`, `SlugifyPath`, `filesystemPropertyTypes` and `createSlugifyPath`.
+This package is fully typed with [TypeScript](https://www.typescriptlang.org). It exports `RemarkObsidianMdOptions`, `Resolver`, `FilesystemResolver`, `ResolvedTarget`, `NoteMetadata`, `MapResolverEntry`, `FilesystemResolverOptions`, `DuplicatePolicy`, `UnresolvedStrategy`, `UrlOptions`, `WikiLinksOptions`, `WikiLinksPluginOptions`, `EmbedsOptions`, `EmbedsPluginOptions`, `BlockIdsOptions`, `CalloutsPluginOptions`, `CalloutTypeDefinition`, `GetFrontmatterOptions`, `FrontmatterLink`, `FrontmatterDate`, `PropertyTypes`, `SlugifyPath`, `filesystemPropertyTypes` and `createSlugifyPath`.
 
 The custom `embed` and `callout` nodes are registered in the `@types/mdast` maps via module augmentation.
 
@@ -284,7 +284,7 @@ Version 3.0.0 is a breaking rewrite. The output is framework-agnostic MDAST — 
 - **`customProps` removed.** Nodes no longer take injected attributes from options. Custom nodes carry `data.hName` / `data.hProperties` (standard `mdast-util-to-hast` mechanism); post-process the MDAST to tweak properties.
 - **`include` node removed.** Embeds are now the custom `embed` node whose `children` hold the transcluded content, so downstream plugins process it. Both custom nodes render through `remark-rehype` without a companion plugin.
 - **`getFrontmatter` options changed.** `{ contentMap, urlPrefix, ignoredKeys }` is now `{ resolver, slugify?, slugifyPath?, urlPrefix?, ignoredKeys?, types? }` — pass the same Resolver you pass to the plugin. Unresolved wiki links now come back as `{ label, unresolved: true }` instead of a bare string, so consumers can style them like Obsidian; markdown links (`[label](url)`) are resolved to `{ url, label }` as external references; whole-value ISO dates come back as `{ date, kind }` objects instead of bare strings.
-- **Optional `slugifyPath`.** The new `slugifyPath` option (and `createSlugifyPath` helper) gives Notes that slugify alike distinct URLs, e.g. `Sebá.md` → `seba` and `Sebã.md` → `seba-2`. It is opt-in: without it, URLs are unchanged. With it, an `index` Note is linked under its folder (`/notes` instead of `/notes/index`).
+- **Optional `slugifyPath`.** The new `slugifyPath` option (and `createSlugifyPath` helper) gives Notes that slugify alike distinct URLs, e.g. `Sebá.md` → `seba` and `Sebã.md` → `seba-2`. It is opt-in: without it, URLs are unchanged. With it, an `index` Note is linked under its folder (`/notes` instead of `/notes/index`) — unless a Note with that name exists, in which case it moves to `/notes/index`.
 - **Callouts are back.** 2.0.0 removed them; 3.0.0 renders Obsidian's reading-view DOM and the bundled `styles/*.css` is gone (the `styles` export was removed with it). Icon hooks are `.callout-title-icon[data-icon]`.
 - **URLs for symbol-bearing Notes changed.** The built-in `slugify` now spells `+`/`#` that follow a word: `C++.md` (`c-plus-plus`) and `C#.md` (`c-sharp`) no longer collide with `C.md` (`c`). Other punctuation is still dropped, so a vault whose names differ only in punctuation needs a custom `slugify`.
 - **New syntax.** Comments (`%%…%%`), Block IDs / Block References (`^id`), inline Footnotes (`^[text]`), aliases, nested-heading Subpaths and Callout folding are now supported.

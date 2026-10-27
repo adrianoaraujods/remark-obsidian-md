@@ -1,5 +1,5 @@
 import type { PropertyTypes } from "./property-types.js";
-import type { Resolver, SlugifyPath } from "./types.js";
+import type { Resolver, UrlOptions } from "./types.js";
 import {
   anchorFor,
   githubSlugger,
@@ -30,12 +30,8 @@ export type FrontmatterDate = {
   kind: "date" | "datetime";
 };
 
-export type GetFrontmatterOptions = {
+export type GetFrontmatterOptions = UrlOptions & {
   resolver: Resolver;
-  slugify?: (text: string) => string;
-  /** Maps a Note path to the URL path it is published under. */
-  slugifyPath?: SlugifyPath | undefined;
-  urlPrefix?: string;
   ignoredKeys?: string[];
   /**
    * Obsidian's property type map (see {@link filesystemPropertyTypes}).

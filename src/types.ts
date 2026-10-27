@@ -24,14 +24,21 @@ export type FilesystemResolver = Resolver & {
 export type UnresolvedStrategy = "link" | "plain";
 
 /**
- * Maps a Note path to the URL path it is published under. Lets a consumer
- * give Notes that slugify alike (e.g. `Sebá.md` and `Sebã.md`) distinct URLs.
+ * Maps a Note path to the slug it is published under. Lets a consumer give
+ * Notes that slugify alike (e.g. `Sebá.md` and `Sebã.md`) distinct URLs.
  */
 export type SlugifyPath = (path: string) => string;
 
 export type WikiLinksOptions = {
   slugger?: ((text: string) => string) | undefined;
   unresolvedStrategy?: UnresolvedStrategy | undefined;
+};
+
+/** How a Note path becomes the URL it is published under. */
+export type UrlOptions = {
+  slugify?: ((text: string) => string) | undefined;
+  slugifyPath?: SlugifyPath | undefined;
+  urlPrefix?: string | undefined;
 };
 
 export type BlockIdsOptions = {
@@ -46,23 +53,17 @@ export type EmbedsOptions = {
   maxDepth?: number | undefined;
 };
 
-export type RemarkObsidianMdOptions = {
+export type RemarkObsidianMdOptions = UrlOptions & {
   resolver?: Resolver | undefined;
-  slugify?: ((text: string) => string) | undefined;
-  slugifyPath?: SlugifyPath | undefined;
-  urlPrefix?: string | undefined;
   wikiLinks?: WikiLinksOptions | undefined;
   blockIds?: BlockIdsOptions | undefined;
   embeds?: EmbedsOptions | undefined;
   callouts?: CalloutsPluginOptions | undefined;
 };
 
-export type WikiLinksPluginOptions = {
+export type WikiLinksPluginOptions = UrlOptions & {
   resolver?: Resolver | undefined;
   slugger?: ((text: string) => string) | undefined;
-  slugify?: ((text: string) => string) | undefined;
-  slugifyPath?: SlugifyPath | undefined;
-  urlPrefix?: string | undefined;
   unresolvedStrategy?: UnresolvedStrategy | undefined;
 };
 

@@ -19,12 +19,8 @@ _Avoid_: media, attachment, resource
 ## Publishing
 
 **Slug**:
-The URL segment a Note is published under, derived from its name (e.g. `Sebá.md` → `seba`).
-_Avoid_: URL name, permalink, route
-
-**URL path**:
-The full path of a Note's published URL, made of one Slug per path segment (e.g. `geografia/localizacoes/seba`).
-_Avoid_: slug path, route, page path
+The path a Note is published under, built from its path segments (e.g. `Geografia/Localizações/Sebá.md` → `geografia/localizacoes/seba`). Every Note of a Vault gets its own.
+_Avoid_: route, page path, permalink
 
 ## Links & embeds
 

@@ -178,13 +178,23 @@ export function normalizePath(path: string): string {
 }
 
 /**
+ * Slugifies each path segment and joins them into a slug.
+ */
+export function slugifySegments(
+  segments: readonly string[],
+  slugifySegment: (text: string) => string,
+): string {
+  return segments.map(slugifySegment).join("/");
+}
+
+/**
  * Builds a root-relative, slugified URL from a vault-relative file path.
  *
  * @param path - The file path as stored in the content map (with or without a
  *   leading slash).
  * @param options.slugify - Slugify function used per path segment.
- * @param options.slugifyPath - Optional map from a Note path to its URL path;
- *   takes precedence over `slugify` when given.
+ * @param options.slugifyPath - Optional map from a Note path to the slug it
+ *   is published under; takes precedence over `slugify` when given.
  * @param options.urlPrefix - Optional prefix prepended to the URL (e.g. "/docs").
  * @param options.anchor - Optional, already slugged heading anchor.
  * @returns A URL starting with `/`, e.g. `/docs/folder/note#some-heading`.
@@ -200,12 +210,13 @@ export function slugifyUrl(
 ): string {
   const slug = options.slugifyPath
     ? options.slugifyPath(path)
-    : path
-        .replace(/\.mdx?$/, "")
-        .split("/")
-        .filter(Boolean)
-        .map((part) => options.slugify(part))
-        .join("/");
+    : slugifySegments(
+        path
+          .replace(/\.mdx?$/, "")
+          .split("/")
+          .filter(Boolean),
+        options.slugify,
+      );
 
   const trimmedPrefix = options.urlPrefix?.replace(/^\/+|\/+$/g, "");
   const prefixPart = trimmedPrefix ? `${trimmedPrefix}/` : "";

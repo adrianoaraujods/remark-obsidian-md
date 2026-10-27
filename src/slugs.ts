@@ -1,9 +1,9 @@
 import type { SlugifyPath } from "./types.js";
-import { normalizePath, slugify } from "./utils.js";
+import { normalizePath, slugify, slugifySegments } from "./utils.js";
 
 /**
- * Assigns every Note path a distinct URL path, so two Notes whose names
- * slugify alike (`Sebá.md` and `Sebã.md`) can both be published.
+ * Assigns every Note path a distinct slug, so two Notes whose names slugify
+ * alike (`Sebá.md` and `Sebã.md`) can both be published.
  *
  * The first Note of a colliding group keeps the plain slug, the others get
  * `-2`, `-3`, … on the last segment; a slug another Note already owns is
@@ -25,16 +25,16 @@ export function createSlugifyPath(
   // colliding group.
   const groups = new Map<string, string[]>();
   for (const notePath of notePaths) {
-    const base = baseSlug(notePath, slugifySegment);
-    const group = groups.get(base);
+    const plainSlug = plainSlugOf(notePath, slugifySegment);
+    const group = groups.get(plainSlug);
     if (group) group.push(notePath);
-    else groups.set(base, [notePath]);
+    else groups.set(plainSlug, [notePath]);
   }
 
   const taken = new Set(groups.keys());
   const assigned = new Map<string, string>();
 
-  for (const [base, group] of groups) {
+  for (const [plainSlug, group] of groups) {
     // A Note called `Notes.md` owns the slug; the `Notes/index.md` of that
     // folder moves to `notes/index`.
     const ordered = [
@@ -44,10 +44,10 @@ export function createSlugifyPath(
     const owner = ordered.shift();
     if (!owner) continue;
 
-    assigned.set(owner, base);
+    assigned.set(owner, plainSlug);
 
     for (const notePath of ordered) {
-      const slug = nextSlug(base, {
+      const slug = nextSlug(plainSlug, {
         isIndex: isIndexPath(notePath),
         ownerIsIndex: isIndexPath(owner),
         taken,
@@ -62,34 +62,34 @@ export function createSlugifyPath(
 }
 
 /** The slug a Note gets on its own; an `index` Note lives under its folder. */
-function baseSlug(
+function plainSlugOf(
   notePath: string,
   slugifySegment: (text: string) => string,
 ): string {
   const segments = notePath.split("/").filter(Boolean);
   if (segments.at(-1) === "index") segments.pop();
-  return segments.map(slugifySegment).join("/");
+  return slugifySegments(segments, slugifySegment);
 }
 
 function nextSlug(
-  base: string,
+  plainSlug: string,
   options: { isIndex: boolean; ownerIsIndex: boolean; taken: Set<string> },
 ): string {
   if (options.isIndex && !options.ownerIsIndex) {
     let counter = 2;
-    let slug = `${base}/index`;
+    let slug = `${plainSlug}/index`;
     while (options.taken.has(slug)) {
-      slug = `${base}/index-${counter}`;
+      slug = `${plainSlug}/index-${counter}`;
       counter += 1;
     }
     return slug;
   }
 
   let counter = 2;
-  let slug = `${base}-${counter}`;
+  let slug = `${plainSlug}-${counter}`;
   while (options.taken.has(slug)) {
     counter += 1;
-    slug = `${base}-${counter}`;
+    slug = `${plainSlug}-${counter}`;
   }
   return slug;
 }
@@ -103,9 +103,8 @@ function fallbackSlug(
   path: string,
   slugifySegment: (text: string) => string,
 ): string {
-  return normalizePath(path)
-    .split("/")
-    .filter(Boolean)
-    .map(slugifySegment)
-    .join("/");
+  return slugifySegments(
+    normalizePath(path).split("/").filter(Boolean),
+    slugifySegment,
+  );
 }

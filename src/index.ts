@@ -104,6 +104,7 @@ export type {
   Resolver,
   SlugifyPath,
   UnresolvedStrategy,
+  UrlOptions,
   WikiLinksOptions,
   WikiLinksPluginOptions,
 } from "./types.js";
