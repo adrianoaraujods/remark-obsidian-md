@@ -12,7 +12,7 @@ import type {
 import { isPlainObject, normalizePath } from "./utils.js";
 
 /**
- * How to pick a winner when several files share a basename or Alias.
+ * How to pick a winner when several Notes share a basename or Alias.
  * `"root"` prefers the shallowest path (Obsidian's behaviour), `"first"` and
  * `"last"` follow scan order.
  */

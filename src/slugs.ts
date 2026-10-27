@@ -1,5 +1,5 @@
 import type { SlugifyPath } from "./types.js";
-import { normalizePath, slugify, slugifySegments } from "./utils.js";
+import { normalizePath, pathKey, slugify, slugifySegments } from "./utils.js";
 
 /**
  * Assigns every Note path a distinct slug, so two Notes whose names slugify
@@ -17,8 +17,10 @@ export function createSlugifyPath(
 ): SlugifyPath {
   const slugifySegment = options.slugify ?? slugify;
 
+  // The key keeps the extension's case: `/A.md` and `/A.MD` are two Notes,
+  // even though both slugify to `a`.
   const notePaths = [
-    ...new Set([...paths].map(normalizePath).filter(Boolean)),
+    ...new Set([...paths].map(pathKey).filter(Boolean)),
   ].sort();
 
   // The slug every Note would get on its own. Notes sharing one form a
@@ -35,18 +37,12 @@ export function createSlugifyPath(
   const assigned = new Map<string, string>();
 
   for (const [plainSlug, group] of groups) {
-    // A Note called `Notes.md` owns the slug; the `Notes/index.md` of that
-    // folder moves to `notes/index`.
-    const ordered = [
-      ...group.filter((notePath) => !isIndexPath(notePath)),
-      ...group.filter(isIndexPath),
-    ];
-    const owner = ordered.shift();
+    const [owner, ...rest] = orderGroup(group);
     if (!owner) continue;
 
     assigned.set(owner, plainSlug);
 
-    for (const notePath of ordered) {
+    for (const notePath of rest) {
       const slug = nextSlug(plainSlug, {
         isIndex: isIndexPath(notePath),
         ownerIsIndex: isIndexPath(owner),
@@ -58,7 +54,30 @@ export function createSlugifyPath(
   }
 
   return (path) =>
-    assigned.get(normalizePath(path)) ?? fallbackSlug(path, slugifySegment);
+    assigned.get(pathKey(path)) ?? fallbackSlug(path, slugifySegment);
+}
+
+/**
+ * Orders a colliding group: the Note that keeps the plain slug first, the
+ * others after it. A Note named after a folder (`Notes.md` next to
+ * `Notes/index.md`) keeps the slug; the `index` Note of that folder moves to
+ * `<slug>/index`.
+ */
+function orderGroup(group: string[]): string[] {
+  const [first] = group;
+  if (!first) return group;
+
+  const owner =
+    group.find(
+      (notePath) =>
+        !isIndexPath(notePath) &&
+        group.some(
+          (other) =>
+            isIndexPath(other) && noteName(notePath) === indexFolder(other),
+        ),
+    ) ?? first;
+
+  return [owner, ...group.filter((notePath) => notePath !== owner)];
 }
 
 /** The slug a Note gets on its own; an `index` Note lives under its folder. */
@@ -66,7 +85,7 @@ function plainSlugOf(
   notePath: string,
   slugifySegment: (text: string) => string,
 ): string {
-  const segments = notePath.split("/").filter(Boolean);
+  const segments = normalizePath(notePath).split("/").filter(Boolean);
   if (segments.at(-1) === "index") segments.pop();
   return slugifySegments(segments, slugifySegment);
 }
@@ -95,7 +114,19 @@ function nextSlug(
 }
 
 function isIndexPath(notePath: string): boolean {
-  return notePath.split("/").at(-1) === "index";
+  return normalizePath(notePath).split("/").at(-1) === "index";
+}
+
+/** The name of a Note: its file name without the extension. */
+function noteName(notePath: string): string {
+  return (normalizePath(notePath).split("/").at(-1) ?? "").toLowerCase();
+}
+
+/** The folder an `index` Note lives in. */
+function indexFolder(notePath: string): string {
+  const segments = normalizePath(notePath).split("/");
+  segments.pop();
+  return (segments.at(-1) ?? "").toLowerCase();
 }
 
 /** A path the map does not know keeps the plain per-segment slug. */

@@ -148,7 +148,7 @@ use(remarkObsidianMd, { resolver, slugifyPath });
 Pass the same map to your site generator, so a link and the Note it points at always agree. `getFrontmatter` takes it too:
 
 ```ts
-const frontmatter = getFrontmatter(page.data.frontmatter, {
+const frontmatter = getFrontmatter(note.data.frontmatter, {
   resolver,
   slugifyPath,
 });
@@ -256,7 +256,7 @@ import {
   getFrontmatter,
 } from "remark-obsidian-md";
 
-const frontmatter = getFrontmatter(page.data.frontmatter, {
+const frontmatter = getFrontmatter(note.data.frontmatter, {
   resolver, // the same Resolver you pass to the plugin
   types: filesystemPropertyTypes("./vault"), // optional, reads .obsidian/types.json
   slugify, // optional

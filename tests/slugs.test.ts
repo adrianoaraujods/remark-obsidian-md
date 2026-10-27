@@ -55,6 +55,21 @@ describe("createSlugifyPath", () => {
     expect(slugifyPath("/Notes/index.md")).toBe("notes/index");
   });
 
+  it("publishes an index Note under its folder when no Note has that name", () => {
+    const slugifyPath = createSlugifyPath(["/A B/index.md", "/A-B.md"]);
+
+    expect(slugifyPath("/A B/index.md")).toBe("a-b");
+    expect(slugifyPath("/A-B.md")).toBe("a-b-2");
+  });
+
+  it("keeps Notes that differ only in the case of their extension apart", () => {
+    const slugifyPath = createSlugifyPath(["/A.md", "/A.MD"]);
+
+    // Paths are sorted, so `A.MD` (`M`) comes before `A.md` (`m`).
+    expect(slugifyPath("/A.MD")).toBe("a");
+    expect(slugifyPath("/A.md")).toBe("a-2");
+  });
+
   it("never takes the slug another Note already owns", () => {
     const slugifyPath = createSlugifyPath([
       "/A/Sebá.md",

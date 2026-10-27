@@ -166,15 +166,19 @@ export function textOf(node: unknown): string {
 }
 
 /**
- * Normalizes a Vault path: backslashes become slashes, surrounding space,
- * a leading slash and the markdown extension are dropped.
+ * Normalizes a Note path: backslashes become slashes, surrounding space and
+ * a leading slash are dropped. The markdown extension is kept — two Notes
+ * that differ only in the case of their extension are still two Notes.
+ */
+export function pathKey(path: string): string {
+  return path.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
+/**
+ * Normalizes a Note path and drops its markdown extension.
  */
 export function normalizePath(path: string): string {
-  return path
-    .trim()
-    .replace(/\\/g, "/")
-    .replace(/^\/+/, "")
-    .replace(/\.mdx?$/i, "");
+  return pathKey(path).replace(/\.mdx?$/i, "");
 }
 
 /**
@@ -188,9 +192,9 @@ export function slugifySegments(
 }
 
 /**
- * Builds a root-relative, slugified URL from a vault-relative file path.
+ * Builds a root-relative, slugified URL from a Note path.
  *
- * @param path - The file path as stored in the content map (with or without a
+ * @param path - The Note path, as the Resolver reports it (with or without a
  *   leading slash).
  * @param options.slugify - Slugify function used per path segment.
  * @param options.slugifyPath - Optional map from a Note path to the slug it
@@ -212,7 +216,7 @@ export function slugifyUrl(
     ? options.slugifyPath(path)
     : slugifySegments(
         path
-          .replace(/\.mdx?$/, "")
+          .replace(/\.mdx?$/i, "")
           .split("/")
           .filter(Boolean),
         options.slugify,
