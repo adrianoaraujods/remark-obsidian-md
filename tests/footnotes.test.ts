@@ -6,25 +6,37 @@ import { describe, expect, it } from "vitest";
 
 import remarkObsidianMd, { remarkObsidianFootnotes } from "../src/index.js";
 import { mapResolver } from "../src/resolver.js";
-import { textOf } from "../src/utils.js";
+import { githubSlugger, textOf } from "../src/utils.js";
 
 const notes: Record<string, string> = {
   "/Other.md": "A block in another Note ^block-2",
+  "/Embedded.md": "Embedded body^[[[Note|Alias]]]",
 };
 
 const resolver = mapResolver({
   "Wiki Link": { path: "/Wiki Link.md", aliases: ["Alias Note"] },
+  Note: { path: "/Note.md" },
   Other: { path: "/Other.md" },
+  Embedded: { path: "/Embedded.md" },
 });
+
+/** A `[[Note|Alias]]` Wiki Link, resolved. */
+const resolvedAlias = {
+  type: "link",
+  url: "/note",
+  children: [{ type: "text", value: "Alias" }],
+};
 
 function readNote(path: string): string | undefined {
   return notes[path];
 }
 
 function process(markdown: string): Root {
-  const processor = unified()
-    .use(remarkParse)
-    .use(remarkObsidianMd, { resolver, blockIds: { readNote } });
+  const processor = unified().use(remarkParse).use(remarkObsidianMd, {
+    resolver,
+    embeds: { readNote },
+    blockIds: { readNote },
+  });
 
   return processor.runSync(processor.parse(markdown));
 }
@@ -39,7 +51,11 @@ function processGfm(markdown: string): Root {
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
-    .use(remarkObsidianMd, { resolver, blockIds: { readNote } });
+    .use(remarkObsidianMd, {
+      resolver,
+      embeds: { readNote },
+      blockIds: { readNote },
+    });
 
   return processor.runSync(processor.parse(markdown));
 }
@@ -359,6 +375,13 @@ describe("Inline Footnotes", () => {
   it("leaves footnotes inside code alone", () => {
     const tree = process("`^[inline]`\n\n```\n^[block]\n```");
 
+    expect(tree.children).toMatchObject([
+      {
+        type: "paragraph",
+        children: [{ type: "inlineCode", value: "^[inline]" }],
+      },
+      { type: "code", value: "^[block]" },
+    ]);
     expect(JSON.stringify(tree)).not.toContain('"sup"');
   });
 
@@ -400,6 +423,193 @@ describe("Inline Footnotes", () => {
       type: "text",
       value: "[[Wiki Link]]",
       data: { hName: "sup" },
+    });
+  });
+});
+
+describe("Footnotes in phrasing contexts", () => {
+  it("resolves a Wiki Link inside a footnote in a table cell", () => {
+    const tree = processGfm(
+      "| head | head |\n| --- | --- |\n| x | ^[see [[Note\\|Alias]]] |",
+    );
+
+    expect(tree.children[0]).toMatchObject({
+      type: "table",
+      children: [
+        {
+          type: "tableRow",
+          children: [
+            { type: "tableCell", children: [{ type: "text", value: "head" }] },
+            { type: "tableCell", children: [{ type: "text", value: "head" }] },
+          ],
+        },
+        {
+          type: "tableRow",
+          children: [
+            { type: "tableCell", children: [{ type: "text", value: "x" }] },
+            {
+              type: "tableCell",
+              children: [
+                {
+                  type: "obsidianFootnote",
+                  value: "see [[Note\\|Alias]]",
+                  data: { hName: "sup", hProperties: {} },
+                  children: [{ type: "text", value: "see " }, resolvedAlias],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("resolves a Wiki Link inside a footnote in a Callout body", () => {
+    const tree = process("> [!note] Title\n> body^[[[Note|Alias]]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "callout",
+      children: [
+        { type: "calloutPart" },
+        {
+          type: "calloutPart",
+          data: { hProperties: { className: ["callout-content"] } },
+          children: [
+            {
+              type: "paragraph",
+              children: [
+                { type: "text", value: "body" },
+                { type: "obsidianFootnote", children: [resolvedAlias] },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("resolves a Wiki Link inside a footnote in a list item", () => {
+    const tree = process("- item^[[[Note|Alias]]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "list",
+      children: [
+        {
+          type: "listItem",
+          children: [
+            {
+              type: "paragraph",
+              children: [
+                { type: "text", value: "item" },
+                { type: "obsidianFootnote", children: [resolvedAlias] },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("resolves a Wiki Link inside a footnote in a heading", () => {
+    const tree = process("# Heading^[[[Note|Alias]]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "heading",
+      depth: 1,
+      children: [
+        { type: "text", value: "Heading" },
+        { type: "obsidianFootnote", children: [resolvedAlias] },
+      ],
+    });
+  });
+
+  it("resolves a Wiki Link inside a footnote in emphasis", () => {
+    const tree = process("*em^[[[Note|Alias]]]*");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "emphasis",
+          children: [
+            { type: "text", value: "em" },
+            { type: "obsidianFootnote", children: [resolvedAlias] },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("resolves a Wiki Link inside a footnote in strong text", () => {
+    const tree = process("**strong^[[[Note|Alias]]]**");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "strong",
+          children: [
+            { type: "text", value: "strong" },
+            { type: "obsidianFootnote", children: [resolvedAlias] },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("resolves a Wiki Link inside a footnote in an embedded Note", () => {
+    const tree = process("![[Embedded]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [
+            { type: "text", value: "Embedded body" },
+            { type: "obsidianFootnote", children: [resolvedAlias] },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("keeps the anchor of a heading carrying a footnote", () => {
+    const tree = process("# Heading^[[[Note]]]");
+    const heading = tree.children[0] as Heading;
+
+    expect(textOf(heading)).toBe("Heading[[Note]]");
+    expect(githubSlugger(textOf(heading))).toBe("headingnote");
+  });
+
+  it("keeps an inline Embed whose embedded Note carries a footnote in a phrasing container", () => {
+    const tree = process("*![[Embedded]]*");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "emphasis",
+          children: [
+            {
+              type: "embed",
+              data: {
+                hName: "span",
+                hProperties: { className: ["internal-embed"] },
+              },
+              children: [
+                {
+                  type: "paragraph",
+                  children: [
+                    { type: "text", value: "Embedded body" },
+                    { type: "obsidianFootnote", children: [resolvedAlias] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
   });
 });

@@ -135,6 +135,7 @@ const PHRASING_PARENTS = new Set([
   "delete",
   "link",
   "tableCell",
+  "obsidianFootnote",
 ]);
 
 /**
@@ -512,6 +513,7 @@ const INLINE_TYPES = new Set([
   "delete",
   "footnote",
   "footnoteReference",
+  "obsidianFootnote",
   "inlineMath",
   "mdxJsxTextElement",
   "mdxTextExpression",
