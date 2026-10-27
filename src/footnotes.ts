@@ -1,9 +1,10 @@
-import type { Literal, Root } from "mdast";
+import type { Literal, Parent, PhrasingContent, Root } from "mdast";
 import type {
   CompileContext,
   Extension as FromMarkdownExtension,
   Token,
 } from "mdast-util-from-markdown";
+import { fromMarkdown } from "mdast-util-from-markdown";
 import { codes } from "micromark-util-symbol";
 import type {
   Code,
@@ -14,6 +15,7 @@ import type {
   TokenizeContext,
 } from "micromark-util-types";
 import type { Processor, Transformer } from "unified";
+import type { Position } from "unist";
 import { visit } from "unist-util-visit";
 
 import { addExtension } from "./extensions.js";
@@ -25,8 +27,10 @@ declare module "micromark-util-types" {
 }
 
 /**
- * Intermediate node for `^[text]`. It never reaches the output; the transform
- * turns it into text carrying `hName: "sup"`.
+ * Intermediate node for `^[text]`. It never reaches the output: a Footnote
+ * whose content holds elements becomes a parent carrying the parsed content,
+ * and a Footnote whose content is plain text becomes a text node carrying
+ * `hName: "sup"`.
  */
 interface ObsidianFootnoteNode extends Literal {
   type: "obsidianFootnote";
@@ -114,11 +118,71 @@ export const footnoteFromMarkdown: FromMarkdownExtension = {
   exit: {
     obsidianFootnote(this: CompileContext, token: Token) {
       const node = this.stack[this.stack.length - 1] as ObsidianFootnoteNode;
-      node.value = this.sliceSerialize(token).slice(2, -1);
+      const content = this.sliceSerialize(token).slice(2, -1);
+      node.value = content;
+
+      const children = parseContent(content);
+
+      // Plain text keeps publishing as a text node; content that holds
+      // elements becomes a parent carrying the parsed content.
+      if (children && !isPlainText(children)) {
+        const container = node as ObsidianFootnoteNode & Parent;
+        container.children = children;
+        container.data = { hName: "sup", hProperties: {} };
+
+        // Every node of the parsed content points at the Footnote's content
+        // range: the nested parse's own positions are relative to it.
+        visit(container, (child) => {
+          if (child === container) return;
+          child.position = contentPosition(token);
+        });
+      }
+
       this.exit(token);
     },
   },
 };
+
+/**
+ * Parses a Footnote's content as inline Markdown. The content is inline only
+ * when it parses as a single paragraph; anything else (a heading, a list) is
+ * block Markdown and stays literal text.
+ *
+ * ponytail: core Markdown only; the Note's own syntax extensions arrive with
+ * ticket #20, which parses the content with the processor's extensions.
+ */
+function parseContent(content: string): PhrasingContent[] | undefined {
+  const tree = fromMarkdown(content);
+
+  if (tree.children.length === 0) return [];
+  if (tree.children.length !== 1) return undefined;
+
+  const [child] = tree.children;
+  if (child?.type !== "paragraph") return undefined;
+
+  return child.children;
+}
+
+/** Whether the phrasing content is plain text. */
+function isPlainText(children: PhrasingContent[]): boolean {
+  return children.every((child) => child.type === "text");
+}
+
+/** The Footnote's content range: between `^[` and the closing `]`. */
+function contentPosition(token: Token): Position {
+  return {
+    start: {
+      line: token.start.line,
+      column: token.start.column + 2,
+      offset: token.start.offset + 2,
+    },
+    end: {
+      line: token.end.line,
+      column: token.end.column - 1,
+      offset: token.end.offset - 1,
+    },
+  };
+}
 
 export function configureFootnotes(processor: Processor): (tree: Root) => void {
   addExtension(processor, "micromarkExtensions", footnoteSyntax);
@@ -127,6 +191,11 @@ export function configureFootnotes(processor: Processor): (tree: Root) => void {
   return (tree) => {
     visit(tree, "obsidianFootnote", (node, index, parent) => {
       if (index === undefined || !parent) return;
+
+      // A Footnote holding parsed content is already a container; only a
+      // Footnote of plain text becomes a text node.
+      if ("children" in node) return;
+
       parent.children[index] = {
         type: "text",
         value: node.value,
