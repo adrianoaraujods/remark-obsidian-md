@@ -58,6 +58,9 @@ function tokenizeFootnote(
   ok: State,
   nok: State,
 ): State {
+  // The opening `[` counts as one, so the Footnote closes at the `]` that
+  // matches it and a bracketed fragment inside does not end it early.
+  let depth = 1;
   return start;
 
   function start(code: Code): State | undefined {
@@ -78,11 +81,21 @@ function tokenizeFootnote(
       code === codes.eof ||
       code === codes.lineFeed ||
       code === codes.carriageReturn ||
-      code === codes.carriageReturnLineFeed ||
-      code === codes.rightSquareBracket
+      code === codes.carriageReturnLineFeed
     ) {
-      if (code !== codes.rightSquareBracket) return nok(code);
+      return nok(code);
+    }
+
+    if (code === codes.leftSquareBracket) {
+      depth++;
       effects.consume(code);
+      return inside;
+    }
+
+    if (code === codes.rightSquareBracket) {
+      depth--;
+      effects.consume(code);
+      if (depth > 0) return inside;
       effects.exit("obsidianFootnote");
       return ok;
     }

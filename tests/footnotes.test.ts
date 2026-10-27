@@ -35,6 +35,50 @@ describe("Inline Footnotes", () => {
     });
   });
 
+  it("keeps a bracketed fragment inside the sup", () => {
+    const tree = process("Note^[a [1] b]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        { type: "text", value: "Note" },
+        { type: "text", value: "a [1] b", data: { hName: "sup" } },
+      ],
+    });
+  });
+
+  it("keeps a Wiki Link inside the sup without resolving it", () => {
+    const tree = process("Note^[[[target|alias]]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        { type: "text", value: "Note" },
+        { type: "text", value: "[[target|alias]]", data: { hName: "sup" } },
+      ],
+    });
+  });
+
+  it("leaves an unclosed footnote as literal text", () => {
+    const tree = process("Note^[unclosed");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [{ type: "text", value: "Note^[unclosed" }],
+    });
+    expect(JSON.stringify(tree)).not.toContain('"hName":"sup"');
+  });
+
+  it("leaves a footnote spanning a line break as literal text", () => {
+    const tree = process("Note^[across\nlines]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [{ type: "text", value: "Note^[across\nlines]" }],
+    });
+    expect(JSON.stringify(tree)).not.toContain('"hName":"sup"');
+  });
+
   it("does not add a footnote section", () => {
     const tree = process("One^[first] and two^[second]");
 
