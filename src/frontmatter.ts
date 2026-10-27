@@ -175,7 +175,7 @@ function resolveValue(value: unknown, options: GetFrontmatterOptions): unknown {
     // unchanged instead of being mistaken for a single external reference.
     if (label !== undefined && target && !/\s|\]\(/.test(target)) {
       // Markdown links are external references: emit the target verbatim
-      // instead of resolving it against the vault.
+      // instead of resolving it against the Vault.
       return { url: target, label } satisfies FrontmatterLink;
     }
     return value;

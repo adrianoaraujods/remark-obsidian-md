@@ -117,7 +117,7 @@ function isIndexPath(notePath: string): boolean {
   return normalizePath(notePath).split("/").at(-1) === "index";
 }
 
-/** The name of a Note: its file name without the extension. */
+/** The name of a Note: its last path segment, without the extension. */
 function noteName(notePath: string): string {
   return (normalizePath(notePath).split("/").at(-1) ?? "").toLowerCase();
 }
