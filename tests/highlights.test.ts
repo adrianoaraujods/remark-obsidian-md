@@ -1,58 +1,69 @@
-/** biome-ignore-all lint/suspicious/noExplicitAny: the nodes could have custom properties */
-
-import fs from "node:fs";
-import path from "node:path";
-import type { Paragraph } from "mdast";
+import type { Root } from "mdast";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
-import { selectAll } from "unist-util-select";
 import { describe, expect, it } from "vitest";
-import { processHighlights } from "../src/highlights";
 
-const FIXTURES_DIR = "tests/fixtures";
-const MARKDOWN_TEST_FILE_NAME = "Highlights.md";
+import remarkObsidianMd, { remarkObsidianHighlights } from "../src/index.js";
+import { mapResolver } from "../src/resolver.js";
 
-describe("processHighlights", async () => {
-  const fixturePath = path.join(
-    process.cwd(),
-    `${FIXTURES_DIR}/${MARKDOWN_TEST_FILE_NAME}`,
-  );
+const resolver = mapResolver({});
 
-  if (!fs.existsSync(fixturePath)) {
-    throw new Error(`Fixture file not found: ${fixturePath}`);
-  }
+function process(markdown: string): Root {
+  const processor = unified()
+    .use(remarkParse)
+    .use(remarkObsidianMd, { resolver });
 
-  const markdownContent = fs.readFileSync(fixturePath, "utf-8");
-  const processor = unified().use(remarkParse);
-  const tree = processor.parse(markdownContent);
+  return processor.runSync(processor.parse(markdown));
+}
 
-  processHighlights(tree, {});
+function processStandalone(markdown: string): Root {
+  const processor = unified().use(remarkParse).use(remarkObsidianHighlights);
 
-  it("handles highlights correctly within a full paragraph", () => {
-    const paragraph = selectAll("paragraph", tree)[1] as Paragraph;
-    const markNode = paragraph.children[0];
+  return processor.runSync(processor.parse(markdown));
+}
 
-    expect(markNode.type).toBe("text");
-    expect((markNode.data as any).hName).toBe("mark");
+describe("Highlights", () => {
+  it("turns ==text== into a mark element", () => {
+    const tree = process("A ==marked== word");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        { type: "text", value: "A " },
+        { type: "text", value: "marked", data: { hName: "mark" } },
+        { type: "text", value: " word" },
+      ],
+    });
   });
 
-  it("handles highlights mixed with normal text", () => {
-    const mixedParagraph = selectAll("paragraph", tree)[3] as Paragraph;
-    expect(mixedParagraph.children).toHaveLength(3);
+  it("transforms highlights in headings, lists, emphasis and strong", () => {
+    const tree = process("# ==a==\n\n- ==b==\n\n**==c==** and _==d==_");
 
-    const [before, mark, after] = mixedParagraph.children;
+    const marks = JSON.stringify(tree).match(/"hName":"mark"/g) ?? [];
+    expect(marks).toHaveLength(4);
+  });
 
-    // Check pre-text
-    expect(before.type).toBe("text");
-    expect(before.data).toBeUndefined();
+  it("does not transform highlight colors", () => {
+    const tree = process("==🔴red==");
 
-    // Check highlight
-    expect(mark.type).toBe("text");
-    expect((mark as any).value).toBe("Highlighted text");
-    expect((mark.data as any).hName).toBe("mark");
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [{ type: "text", value: "==🔴red==" }],
+    });
+  });
 
-    // Check post-text
-    expect(after.type).toBe("text");
-    expect((after as any).value).toBe(" inside a paragraph.");
+  it("leaves highlights inside code alone", () => {
+    const tree = process("`==inline==`\n\n```\n==block==\n```");
+
+    expect(JSON.stringify(tree)).not.toContain('"mark"');
+  });
+
+  it("transforms highlights through the per-feature plugin", () => {
+    const tree = processStandalone("==marked==");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [{ type: "text", value: "marked", data: { hName: "mark" } }],
+    });
   });
 });

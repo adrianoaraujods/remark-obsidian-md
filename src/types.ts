@@ -1,71 +1,145 @@
-/** biome-ignore-all lint/suspicious/noExplicitAny: HTML element properties could be of any type */
+import type { Literal, Parent } from "mdast";
 
-import { type ContentMetadata, getContentMap } from "./content-map.js";
-import { slugify } from "./utils.js";
-
-export type Options = {
-  /**
-   * The directory path where the obsidian vault is located.
-   * @default "./public"
-   */
-  root?: string;
-
-  /**
-   * A function that converts a string into a URL-friendly slug.
-   * @param text
-   * @returns
-   */
-  slugify?: (text: string) => string;
-
-  /**
-   * A Map that contains all the valid markdown files inside the vault folder.
-   *
-   * The keys should be the file name without the extension in lowercase
-   * (e.g., "my file").
-   *
-   * @default Result of {@link getContentMap}
-   */
-  contentMap?: Map<string, ContentMetadata>;
-
-  /**
-   * If you want to support links with (e.g., `[[Wiki Link]]`).
-   * @default true
-   */
-  enableWikiLinks?: boolean;
-
-  /**
-   * If you want to support text embeds (e.g., `![[Wiki Link]]`).
-   * @default true
-   */
-  enableEmbeds?: boolean;
-
-  /**
-   * If you want to support highlights (e.g., `==text==`).
-   * @default true
-   */
-  enableHighlights?: boolean;
-
-  /**
-   * A prefix that will be prepended in the slugified URLs.
-   */
-  urlPrefix?: string;
-
-  /**
-   * Custom HTML properties for each type of node.
-   */
-  customProps?: {
-    wikiLinks?: Record<string, any>;
-    notFoundWikiLinks?: Record<string, any>;
-    highlights?: Record<string, any>;
-  };
+export type NoteMetadata = {
+  title: string;
+  aliases: string[];
+  cssclasses: string[];
 };
 
-export const DEFAULT_OPTIONS = {
-  enableWikiLinks: true,
-  enableEmbeds: true,
-  enableHighlights: true,
-  root: "./public",
-  slugify,
-  customProps: {},
-  urlPrefix: "",
-} satisfies Options;
+export type ResolvedTarget =
+  | { kind: "note"; exists: true; path: string; note: NoteMetadata }
+  | { kind: "asset"; exists: true; path: string; ext: string }
+  | { kind: "note" | "asset"; exists: false };
+
+export type Resolver = {
+  resolve(target: string): ResolvedTarget;
+};
+
+/** A Resolver backed by a Vault scan: it knows the Note paths it found. */
+export type FilesystemResolver = Resolver & {
+  /** The Note paths the scan found, e.g. `/folder/Note.md`. */
+  paths: readonly string[];
+};
+
+export type UnresolvedStrategy = "link" | "plain";
+
+/**
+ * Maps a Note path to the slug it is published under. Lets a consumer give
+ * Notes that slugify alike (e.g. `Sebá.md` and `Sebã.md`) distinct URLs.
+ */
+export type SlugifyPath = (path: string) => string;
+
+export type WikiLinksOptions = {
+  slugger?: ((text: string) => string) | undefined;
+  unresolvedStrategy?: UnresolvedStrategy | undefined;
+};
+
+/** How a Note path becomes the URL it is published under. */
+export type UrlOptions = {
+  slugify?: ((text: string) => string) | undefined;
+  slugifyPath?: SlugifyPath | undefined;
+  urlPrefix?: string | undefined;
+};
+
+export type BlockIdsOptions = {
+  /** Reads a Note's markdown by its resolved path, for cross-Note Block References. */
+  readNote?: ((path: string) => string | undefined) | undefined;
+};
+
+export type EmbedsOptions = {
+  /** Reads a Note's markdown by its resolved path. */
+  readNote?: ((path: string) => string | undefined) | undefined;
+  /** Maximum nesting depth; defaults to 4. */
+  maxDepth?: number | undefined;
+};
+
+export type RemarkObsidianMdOptions = UrlOptions & {
+  resolver?: Resolver | undefined;
+  wikiLinks?: WikiLinksOptions | undefined;
+  blockIds?: BlockIdsOptions | undefined;
+  embeds?: EmbedsOptions | undefined;
+  callouts?: CalloutsPluginOptions | undefined;
+};
+
+export type WikiLinksPluginOptions = UrlOptions & {
+  resolver?: Resolver | undefined;
+  slugger?: ((text: string) => string) | undefined;
+  unresolvedStrategy?: UnresolvedStrategy | undefined;
+};
+
+export type EmbedsPluginOptions = WikiLinksPluginOptions & EmbedsOptions;
+
+export type WikiLinkContext = {
+  resolver: Resolver;
+  slugger: (text: string) => string;
+  slugify: (text: string) => string;
+  slugifyPath?: SlugifyPath | undefined;
+  urlPrefix: string;
+  unresolvedStrategy: UnresolvedStrategy;
+  /** Current Note's Block IDs plus a reader for cross-Note lookups. */
+  blockIds?:
+    | {
+        current: ReadonlyMap<string, unknown>;
+        readNote?: ((path: string) => string | undefined) | undefined;
+      }
+    | undefined;
+};
+
+export type CalloutTypeDefinition = {
+  icon?: string;
+  color?: string;
+  title?: string;
+};
+
+export type CalloutsPluginOptions = {
+  types?: Record<string, CalloutTypeDefinition>;
+};
+
+/** Intermediate node produced by the Wiki Link tokenizer. */
+export interface WikiLinkNode extends Literal {
+  type: "wikiLink";
+}
+
+/**
+ * Embedded content. `value` holds the raw `![[…]]` inner text only until
+ * the Embed transform turns it into a container with parsed children.
+ */
+export interface EmbedNode extends Parent {
+  type: "embed";
+  value?: string;
+}
+
+/**
+ * A Callout. Unlike `embed`, its wrapper structure has no native MDAST
+ * equivalent, so title/content wrappers use the internal `calloutPart` node.
+ */
+export interface CalloutNode extends Parent {
+  type: "callout";
+  children: CalloutPartNode[];
+}
+
+/** One rendered wrapper inside a Callout (`callout-title`, `callout-content`…). */
+export interface CalloutPartNode extends Parent {
+  type: "calloutPart";
+}
+
+declare module "mdast" {
+  interface PhrasingContentMap {
+    wikiLink: WikiLinkNode;
+    embed: EmbedNode;
+  }
+
+  interface RootContentMap {
+    wikiLink: WikiLinkNode;
+    embed: EmbedNode;
+    callout: CalloutNode;
+    calloutPart: CalloutPartNode;
+  }
+}
+
+declare module "micromark-util-types" {
+  interface TokenTypeMap {
+    wikiLink: "wikiLink";
+    embed: "embed";
+  }
+}

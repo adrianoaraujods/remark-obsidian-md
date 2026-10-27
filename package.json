@@ -1,8 +1,8 @@
 {
   "name": "remark-obsidian-md",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "author": "Adriano Araújo (adrianoaraujodsantos@hotmail.com)",
-  "description": "Remark plugin to support Obsidian.md syntax (wiki links, highlights)",
+  "description": "Remark plugin for Obsidian.md syntax: wiki links, embeds, callouts, highlights, comments, block IDs and inline footnotes",
   "license": "MIT",
   "keywords": [
     "remark",
@@ -10,8 +10,12 @@
     "markdown",
     "obsidian",
     "unified",
+    "mdast",
     "wiki-links",
-    "fumadocs",
+    "callouts",
+    "embeds",
+    "highlights",
+    "digital-garden",
     "hast"
   ],
   "homepage": "https://github.com/adrianoaraujods/remark-obsidian-md#readme",
@@ -21,38 +25,46 @@
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist",
-    "styles"
+    "dist"
   ],
   "exports": {
-    ".": "./dist/index.js",
-    "./styles/*": "./styles/*.css"
+    ".": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
     "test": "vitest --coverage",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "pnpm run build",
     "lint": "biome check",
     "format": "biome format --write",
     "prepare": "husky"
   },
   "dependencies": {
-    "mdast-util-find-and-replace": "^3.0.2",
+    "github-slugger": "^2.0.0",
+    "js-yaml": "^5.5.0",
+    "mdast-util-from-markdown": "^2.1.0",
+    "micromark": "^4.0.3",
+    "micromark-util-symbol": "^2.0.1",
+    "micromark-util-types": "^2.0.3",
     "unist-util-visit": "^5.1.0"
+  },
+  "peerDependencies": {
+    "remark-gfm": "^4.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.4.1",
-    "@types/js-yaml": "^4.0.9",
     "@types/mdast": "^4.0.4",
     "@types/node": "^25.2.0",
     "@types/unist": "^3.0.3",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/coverage-v8": "^5.0.5",
     "husky": "^9.1.7",
+    "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "typescript": "^5.9.3",
     "unified": "^11.0.5",
-    "unist-util-select": "^5.1.0"
+    "unist-util-select": "^5.1.0",
+    "vfile": "^6.0.3",
+    "vitest": "^5.0.5"
   }
 }
