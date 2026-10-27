@@ -18,6 +18,7 @@ import type { Processor, Transformer } from "unified";
 import type { Position } from "unist";
 import { visit } from "unist-util-visit";
 
+import { embedSyntax } from "./embed.js";
 import { addExtension } from "./extensions.js";
 
 declare module "micromark-util-types" {
@@ -109,50 +110,74 @@ function tokenizeFootnote(
   }
 }
 
-export const footnoteFromMarkdown: FromMarkdownExtension = {
-  enter: {
-    obsidianFootnote(this: CompileContext, token: Token) {
-      this.enter({ type: "obsidianFootnote", value: "" }, token);
+export function footnoteFromMarkdown(
+  processor: Processor,
+): FromMarkdownExtension {
+  return {
+    enter: {
+      obsidianFootnote(this: CompileContext, token: Token) {
+        this.enter({ type: "obsidianFootnote", value: "" }, token);
+      },
     },
-  },
-  exit: {
-    obsidianFootnote(this: CompileContext, token: Token) {
-      const node = this.stack[this.stack.length - 1] as ObsidianFootnoteNode;
-      const content = this.sliceSerialize(token).slice(2, -1);
-      node.value = content;
+    exit: {
+      obsidianFootnote(this: CompileContext, token: Token) {
+        const node = this.stack[this.stack.length - 1] as ObsidianFootnoteNode;
+        const content = this.sliceSerialize(token).slice(2, -1);
+        node.value = content;
 
-      const children = parseContent(content);
+        const children = parseContent(content, processor);
 
-      // Plain text keeps publishing as a text node; content that holds
-      // elements becomes a parent carrying the parsed content.
-      if (children && !isPlainText(children)) {
-        const container = node as ObsidianFootnoteNode & Parent;
-        container.children = children;
-        container.data = { hName: "sup", hProperties: {} };
+        // Plain text keeps publishing as a text node; content that holds
+        // elements becomes a parent carrying the parsed content.
+        if (children && !isPlainText(children)) {
+          const container = node as ObsidianFootnoteNode & Parent;
+          container.children = children;
+          container.data = { hName: "sup", hProperties: {} };
 
-        // Every node of the parsed content points at the Footnote's content
-        // range: the nested parse's own positions are relative to it.
-        visit(container, (child) => {
-          if (child === container) return;
-          child.position = contentPosition(token);
-        });
-      }
+          // Every node of the parsed content points at the Footnote's content
+          // range: the nested parse's own positions are relative to it.
+          visit(container, (child) => {
+            if (child === container) return;
+            child.position = contentPosition(token);
+          });
+        }
 
-      this.exit(token);
+        this.exit(token);
+      },
     },
-  },
-};
+  };
+}
 
 /**
- * Parses a Footnote's content as inline Markdown. The content is inline only
- * when it parses as a single paragraph; anything else (a heading, a list) is
- * block Markdown and stays literal text.
+ * Parses a Footnote's content with the extensions the host pipeline carries,
+ * so every inline construct the Note supports works inside a Footnote.
  *
- * ponytail: core Markdown only; the Note's own syntax extensions arrive with
- * ticket #20, which parses the content with the processor's extensions.
+ * The Footnote and Embed tokenizers are left out: the first keeps Footnotes
+ * from nesting, the second keeps an Embed — a block construct — literal.
+ *
+ * The content is inline only when it parses as a single paragraph; anything
+ * else (a heading, a list) is block Markdown and stays literal text.
  */
-function parseContent(content: string): PhrasingContent[] | undefined {
-  const tree = fromMarkdown(content);
+function parseContent(
+  content: string,
+  processor: Processor,
+): PhrasingContent[] | undefined {
+  const data = processor.data() as Record<string, unknown>;
+  const extensions = (
+    (data.micromarkExtensions as MicromarkExtension[] | undefined) ?? []
+  ).filter(
+    (extension) => extension !== footnoteSyntax && extension !== embedSyntax,
+  );
+  const mdastExtensions =
+    (data.fromMarkdownExtensions as FromMarkdownExtension[] | undefined) ?? [];
+
+  // The content is inline, so it is parsed as if it did not start at the
+  // beginning of a line: a leading `%%` opens an inline Comment, not a block
+  // Comment. The space is dropped by the parse.
+  const tree = fromMarkdown(` ${content}`, {
+    extensions,
+    mdastExtensions,
+  });
 
   if (tree.children.length === 0) return [];
   if (tree.children.length !== 1) return undefined;
@@ -186,7 +211,11 @@ function contentPosition(token: Token): Position {
 
 export function configureFootnotes(processor: Processor): (tree: Root) => void {
   addExtension(processor, "micromarkExtensions", footnoteSyntax);
-  addExtension(processor, "fromMarkdownExtensions", footnoteFromMarkdown);
+  addExtension(
+    processor,
+    "fromMarkdownExtensions",
+    footnoteFromMarkdown(processor),
+  );
 
   return (tree) => {
     visit(tree, "obsidianFootnote", (node, index, parent) => {

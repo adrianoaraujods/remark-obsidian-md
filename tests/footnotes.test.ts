@@ -1,4 +1,5 @@
 import type { Emphasis, Heading, Paragraph, Parent, Root } from "mdast";
+import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { describe, expect, it } from "vitest";
@@ -7,18 +8,38 @@ import remarkObsidianMd, { remarkObsidianFootnotes } from "../src/index.js";
 import { mapResolver } from "../src/resolver.js";
 import { textOf } from "../src/utils.js";
 
-const resolver = mapResolver({});
+const notes: Record<string, string> = {
+  "/Other.md": "A block in another Note ^block-2",
+};
+
+const resolver = mapResolver({
+  "Wiki Link": { path: "/Wiki Link.md", aliases: ["Alias Note"] },
+  Other: { path: "/Other.md" },
+});
+
+function readNote(path: string): string | undefined {
+  return notes[path];
+}
 
 function process(markdown: string): Root {
   const processor = unified()
     .use(remarkParse)
-    .use(remarkObsidianMd, { resolver });
+    .use(remarkObsidianMd, { resolver, blockIds: { readNote } });
 
   return processor.runSync(processor.parse(markdown));
 }
 
 function processStandalone(markdown: string): Root {
   const processor = unified().use(remarkParse).use(remarkObsidianFootnotes);
+
+  return processor.runSync(processor.parse(markdown));
+}
+
+function processGfm(markdown: string): Root {
+  const processor = unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkObsidianMd, { resolver, blockIds: { readNote } });
 
   return processor.runSync(processor.parse(markdown));
 }
@@ -141,16 +162,171 @@ describe("Inline Footnotes", () => {
     });
   });
 
-  it("keeps a Wiki Link inside the sup without resolving it", () => {
-    const tree = process("Note^[[[target|alias]]]");
+  it("resolves a Wiki Link inside a footnote", () => {
+    const tree = process("Note^[[[Wiki Link]]]");
 
     expect(tree.children[0]).toMatchObject({
       type: "paragraph",
       children: [
         { type: "text", value: "Note" },
-        { type: "text", value: "[[target|alias]]", data: { hName: "sup" } },
+        {
+          type: "obsidianFootnote",
+          value: "[[Wiki Link]]",
+          data: { hName: "sup", hProperties: {} },
+          children: [
+            {
+              type: "link",
+              url: "/wiki-link",
+              children: [{ type: "text", value: "Wiki Link" }],
+            },
+          ],
+        },
       ],
     });
+  });
+
+  it("shows the Alias of a Wiki Link inside a footnote", () => {
+    const tree = process("Note^[[[Wiki Link|Click Here]]]");
+
+    expect(footnoteOf(tree).children).toMatchObject([
+      {
+        type: "link",
+        url: "/wiki-link",
+        children: [{ type: "text", value: "Click Here" }],
+      },
+    ]);
+  });
+
+  it("resolves a heading Subpath inside a footnote", () => {
+    const tree = process("Note^[[[Wiki Link#Some Heading]]]");
+
+    expect(footnoteOf(tree).children).toMatchObject([
+      {
+        type: "link",
+        url: "/wiki-link#some-heading",
+        children: [{ type: "text", value: "Wiki Link" }],
+      },
+    ]);
+  });
+
+  it("resolves a Block Reference inside a footnote", () => {
+    const tree = process("Note^[[[Other#^block-2]]]");
+
+    expect(footnoteOf(tree).children).toMatchObject([
+      {
+        type: "link",
+        url: "/other#^block-2",
+        children: [{ type: "text", value: "Other" }],
+      },
+    ]);
+  });
+
+  it("resolves a heading of the same Note inside a footnote", () => {
+    const tree = process("# Heading\n\nNote^[[[#Heading]]]");
+    const paragraph = tree.children[1] as Paragraph;
+
+    expect(paragraph.children[1]).toMatchObject({
+      type: "obsidianFootnote",
+      children: [
+        {
+          type: "link",
+          url: "#heading",
+          children: [{ type: "text", value: "Heading" }],
+        },
+      ],
+    });
+  });
+
+  it("resolves several Wiki Links and text in one footnote", () => {
+    const tree = process("Note^[[[Wiki Link]] and [[Other]]]");
+
+    expect(footnoteOf(tree).children).toMatchObject([
+      {
+        type: "link",
+        url: "/wiki-link",
+        children: [{ type: "text", value: "Wiki Link" }],
+      },
+      { type: "text", value: " and " },
+      {
+        type: "link",
+        url: "/other",
+        children: [{ type: "text", value: "Other" }],
+      },
+    ]);
+  });
+
+  it("marks an unresolved Wiki Link inside a footnote", () => {
+    const tree = process("Note^[[[Missing]]]");
+    const body = process("[[Missing]]");
+
+    expect(footnoteOf(tree).children).toMatchObject([
+      {
+        type: "link",
+        url: "#",
+        children: [{ type: "text", value: "Missing" }],
+        data: { hProperties: { className: "is-unresolved" } },
+      },
+    ]);
+    expect((body.children[0] as Paragraph).children[0]).toMatchObject(
+      footnoteOf(tree).children?.[0],
+    );
+  });
+
+  it("turns a Highlight inside a footnote into a mark element", () => {
+    const tree = process("Note^[==highlight==]");
+
+    expect(footnoteOf(tree).children).toMatchObject([
+      { type: "text", value: "highlight", data: { hName: "mark" } },
+    ]);
+  });
+
+  it("removes a Comment inside a footnote", () => {
+    const tree = process("Note^[%%comment%%]");
+
+    expect(footnoteOf(tree).type).toBe("obsidianFootnote");
+    expect(footnoteOf(tree).children).toEqual([]);
+    expect(footnoteOf(tree).data).toEqual({ hName: "sup", hProperties: {} });
+  });
+
+  it("never nests a footnote inside another footnote", () => {
+    const tree = process("Note^[a ^[b] c]");
+
+    expect(JSON.stringify(tree).match(/"hName":"sup"/g) ?? []).toHaveLength(1);
+    expect(footnoteOf(tree)).toEqual({
+      type: "text",
+      value: "a ^[b] c",
+      data: { hName: "sup" },
+    });
+  });
+
+  it("keeps an Embed inside a footnote literal", () => {
+    const tree = process("Note^[![[Wiki Link]]]");
+
+    expect(footnoteOf(tree)).toEqual({
+      type: "text",
+      value: "![[Wiki Link]]",
+      data: { hName: "sup" },
+    });
+  });
+
+  it("resolves a Note by its Alias inside a footnote", () => {
+    const tree = process("Note^[[[Alias Note]]]");
+
+    expect(footnoteOf(tree).children).toMatchObject([
+      {
+        type: "link",
+        url: "/wiki-link",
+        children: [{ type: "text", value: "Alias Note" }],
+      },
+    ]);
+  });
+
+  it("honours the extensions the pipeline carries inside a footnote", () => {
+    const tree = processGfm("Note^[~~struck~~]");
+
+    expect(footnoteOf(tree).children).toMatchObject([
+      { type: "delete", children: [{ type: "text", value: "struck" }] },
+    ]);
   });
 
   it("leaves an unclosed footnote as literal text", () => {
@@ -195,6 +371,35 @@ describe("Inline Footnotes", () => {
         { type: "text", value: "Note" },
         { type: "text", value: "details", data: { hName: "sup" } },
       ],
+    });
+  });
+
+  it("parses a footnote's content as inline Markdown through the per-feature plugin", () => {
+    const tree = processStandalone("Note^[*em*]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        { type: "text", value: "Note" },
+        {
+          type: "obsidianFootnote",
+          value: "*em*",
+          data: { hName: "sup", hProperties: {} },
+          children: [
+            { type: "emphasis", children: [{ type: "text", value: "em" }] },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("resolves only the syntax the pipeline provides through the per-feature plugin", () => {
+    const tree = processStandalone("Note^[[[Wiki Link]]]");
+
+    expect(footnoteOf(tree)).toEqual({
+      type: "text",
+      value: "[[Wiki Link]]",
+      data: { hName: "sup" },
     });
   });
 });
