@@ -1,4 +1,4 @@
-import type { Literal, Root } from "mdast";
+import type { Root } from "mdast";
 import type {
   CompileContext,
   Extension as FromMarkdownExtension,
@@ -16,30 +16,20 @@ import type {
 import type { Processor, Transformer } from "unified";
 import { visit } from "unist-util-visit";
 
+import { embedSyntax } from "./embed.js";
 import { addExtension } from "./extensions.js";
+import {
+  applyContentPosition,
+  contentPosition,
+  isPlainText,
+  parseInlineContent,
+} from "./inline.js";
+import type { ObsidianHighlightNode } from "./types.js";
 import { isLineEnding } from "./utils.js";
 
 declare module "micromark-util-types" {
   interface TokenTypeMap {
     obsidianHighlight: "obsidianHighlight";
-  }
-}
-
-/**
- * Intermediate node for `==…==`. It never reaches the output; the transform
- * turns it into text carrying `hName: "mark"`.
- */
-interface ObsidianHighlightNode extends Literal {
-  type: "obsidianHighlight";
-}
-
-declare module "mdast" {
-  interface PhrasingContentMap {
-    obsidianHighlight: ObsidianHighlightNode;
-  }
-
-  interface RootContentMap {
-    obsidianHighlight: ObsidianHighlightNode;
   }
 }
 
@@ -97,20 +87,45 @@ function tokenizeHighlight(
   }
 }
 
-export const highlightFromMarkdown: FromMarkdownExtension = {
-  enter: {
-    obsidianHighlight(this: CompileContext, token: Token) {
-      this.enter({ type: "obsidianHighlight", value: "" }, token);
+export function highlightFromMarkdown(
+  processor: Processor,
+): FromMarkdownExtension {
+  return {
+    enter: {
+      obsidianHighlight(this: CompileContext, token: Token) {
+        this.enter({ type: "obsidianHighlight", value: "" }, token);
+      },
     },
-  },
-  exit: {
-    obsidianHighlight(this: CompileContext, token: Token) {
-      const node = this.stack[this.stack.length - 1] as ObsidianHighlightNode;
-      node.value = this.sliceSerialize(token);
-      this.exit(token);
+    exit: {
+      obsidianHighlight(this: CompileContext, token: Token) {
+        const node = this.stack[this.stack.length - 1] as ObsidianHighlightNode;
+        node.value = this.sliceSerialize(token);
+
+        // The Highlight and Embed tokenizers are left out: the first keeps a
+        // nested `==` literal, the second keeps an Embed — a block construct
+        // — literal.
+        const children = parseInlineContent(
+          node.value.slice(2, -2),
+          processor,
+          [highlightSyntax, embedSyntax],
+        );
+
+        // Plain text keeps publishing as a text node; content that holds
+        // elements becomes a parent carrying the parsed content.
+        if (children && !isPlainText(children)) {
+          node.children = children;
+          node.data = { hName: "mark", hProperties: {} };
+
+          // Every node of the parsed content points at the Highlight's content
+          // range: the nested parse's own positions are relative to it.
+          applyContentPosition(node, contentPosition(token, 2, -2));
+        }
+
+        this.exit(token);
+      },
     },
-  },
-};
+  };
+}
 
 // Obsidian highlight colours are written as a coloured circle at the start of
 // the highlight. They are a plugin convention, not part of the core syntax.
@@ -121,20 +136,42 @@ export function configureHighlights(
   processor: Processor,
 ): (tree: Root) => void {
   addExtension(processor, "micromarkExtensions", highlightSyntax);
-  addExtension(processor, "fromMarkdownExtensions", highlightFromMarkdown);
+  addExtension(
+    processor,
+    "fromMarkdownExtensions",
+    highlightFromMarkdown(processor),
+  );
 
   return transformHighlights;
 }
 
-/** Rewrites `obsidianHighlight` nodes to text carrying `hName: "mark"`. */
+/**
+ * Rewrites `obsidianHighlight` nodes: a Highlight of plain text becomes a text
+ * node carrying `hName: "mark"`, and a Highlight holding parsed content stays
+ * a container — it already carries `hName: "mark"`.
+ */
 export function transformHighlights(tree: Root): void {
   visit(tree, "obsidianHighlight", (node, index, parent) => {
     if (index === undefined || !parent) return;
 
     const inner = node.value.slice(2, -2);
-    parent.children[index] = COLOR_EMOJI.test(inner)
-      ? { type: "text", value: node.value }
-      : { type: "text", value: inner, data: { hName: "mark" } };
+
+    // A Highlight colour is a plugin convention, not part of the core syntax:
+    // it stays literal, even when its content holds elements.
+    if (COLOR_EMOJI.test(inner)) {
+      parent.children[index] = { type: "text", value: node.value };
+      return;
+    }
+
+    // A Highlight holding parsed content is already a container; only a
+    // Highlight of plain text becomes a text node.
+    if ("children" in node) return;
+
+    parent.children[index] = {
+      type: "text",
+      value: inner,
+      data: { hName: "mark" },
+    };
   });
 }
 

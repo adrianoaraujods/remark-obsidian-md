@@ -47,7 +47,7 @@ _Avoid_: transclusion, include
 ## Inline syntax
 
 **Highlight**:
-Text wrapped in `==…==`.
+Text wrapped in `==…==`, whose content is parsed as inline Markdown.
 _Avoid_: mark, marker, selection
 
 **Comment**:
