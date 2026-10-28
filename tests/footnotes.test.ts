@@ -692,34 +692,15 @@ describe("Highlight Colors in Footnotes", () => {
     });
   });
 
-  it("points the Footnote's content at the range the color marker did not shift", () => {
-    const tree = process("Note^[==🔴*em*==]");
-    const highlight = footnoteOf(tree).children?.[0] as Emphasis;
-    const range = {
-      start: { line: 1, column: 7, offset: 6 },
-      end: { line: 1, column: 17, offset: 16 },
-    };
-
-    expect(highlight.position).toEqual(range);
-    expect(highlight.children?.[0]?.position).toEqual(range);
-  });
-
-  it("publishes a Footnote without a color unchanged", () => {
-    const tree = process("Note^[plain footnote]");
-
-    expect(footnoteOf(tree)).toEqual({
-      type: "text",
-      value: "plain footnote",
-      data: { hName: "sup" },
-    });
-  });
-
-  it("points the Footnote's content range at the source after the color emoji is stripped", () => {
+  it("points the Footnote's content at the Highlight's source range", () => {
     const source = "Note^[==🔴**bold** [[Wiki Link]]==]";
     const tree = process(source);
     const footnote = footnoteOf(tree);
     const highlight = footnote.children?.[0] as unknown as Parent;
     const strong = highlight.children?.[0] as Parent;
+
+    // The Highlight Color emoji shifts the content range by its own length,
+    // so the range still covers the Highlight's whole source.
     const contentRange = {
       start: { line: 1, column: 7, offset: 6 },
       end: { line: 1, column: 35, offset: 34 },
@@ -731,7 +712,18 @@ describe("Highlight Colors in Footnotes", () => {
     });
     expect(highlight.position).toEqual(contentRange);
     expect(strong.position).toEqual(contentRange);
+    expect(strong.children?.[0]?.position).toEqual(contentRange);
     expect(source.slice(6, 34)).toBe("==🔴**bold** [[Wiki Link]]==");
+  });
+
+  it("publishes a Footnote without a Highlight Color unchanged", () => {
+    const tree = process("Note^[plain footnote]");
+
+    expect(footnoteOf(tree)).toEqual({
+      type: "text",
+      value: "plain footnote",
+      data: { hName: "sup" },
+    });
   });
 
   it("keeps a Highlight literal through the per-feature Footnote plugin", () => {

@@ -59,11 +59,15 @@ const notes: Record<string, string> = {
     "",
     "Other paragraph ^other",
   ].join("\n"),
-  "/Colored.md": "==🔴Important==",
-  "/Colored Elements.md": "==🔴with **bold**==",
-  "/Colored Sections.md": ["Intro", "", "## Alpha", "", "==🔴section=="].join(
-    "\n",
-  ),
+  "/Highlighted.md": "==🔴Important==",
+  "/Highlighted Elements.md": "==🔴with **bold**==",
+  "/Highlighted Sections.md": [
+    "Intro",
+    "",
+    "## Alpha",
+    "",
+    "==🔴section==",
+  ].join("\n"),
   "/Plain.md": "Plain content",
 };
 
@@ -85,9 +89,9 @@ const resolver = mapResolver({
   Gallery: { path: "/Gallery.md" },
   Sections: { path: "/Sections.md", cssclasses: ["wide"] },
   Blocks: { path: "/Blocks.md", cssclasses: ["wide"] },
-  Colored: { path: "/Colored.md", cssclasses: ["wide"] },
-  "Colored Elements": { path: "/Colored Elements.md" },
-  "Colored Sections": { path: "/Colored Sections.md" },
+  Highlighted: { path: "/Highlighted.md", cssclasses: ["wide"] },
+  "Highlighted Elements": { path: "/Highlighted Elements.md" },
+  "Highlighted Sections": { path: "/Highlighted Sections.md" },
   Plain: { path: "/Plain.md" },
 });
 
@@ -437,7 +441,7 @@ function processHighlightsEmbeds(markdown: string): Root {
 
 describe("Highlight Colors in Embeds", () => {
   it("keeps the Highlight Color of a Highlight inside an embedded Note", () => {
-    const tree = process("![[Colored]]");
+    const tree = process("![[Highlighted]]");
 
     expect(tree.children[0]).toMatchObject({
       type: "embed",
@@ -460,7 +464,7 @@ describe("Highlight Colors in Embeds", () => {
   });
 
   it("keeps the Highlight Color of a Highlight holding elements", () => {
-    const tree = process("![[Colored Elements]]");
+    const tree = process("![[Highlighted Elements]]");
 
     expect(tree.children[0]).toMatchObject({
       type: "embed",
@@ -487,7 +491,7 @@ describe("Highlight Colors in Embeds", () => {
   });
 
   it("keeps the Highlight Color in a transcluded section", () => {
-    const tree = process("![[Colored Sections#Alpha]]");
+    const tree = process("![[Highlighted Sections#Alpha]]");
 
     expect(tree.children[0]).toMatchObject({
       type: "embed",
@@ -515,7 +519,7 @@ describe("Highlight Colors in Embeds", () => {
   });
 
   it("carries the embedded Note's CSS Classes next to the Highlight Color", () => {
-    const tree = process("![[Colored]]");
+    const tree = process("![[Highlighted]]");
 
     expect(tree.children[0]).toMatchObject({
       type: "embed",
@@ -526,7 +530,7 @@ describe("Highlight Colors in Embeds", () => {
     });
   });
 
-  it("publishes a transcluded Note without colored Highlights unchanged", () => {
+  it("publishes a transcluded Note without Highlight Colors unchanged", () => {
     const tree = process("![[Plain]]");
 
     expect(tree.children[0]).toMatchObject({
@@ -546,7 +550,7 @@ describe("Highlight Colors in Embeds", () => {
   });
 
   it("keeps the Highlight Color through the per-feature plugins", () => {
-    const tree = processHighlightsEmbeds("![[Colored]]");
+    const tree = processHighlightsEmbeds("![[Highlighted]]");
 
     expect(tree.children[0]).toMatchObject({
       type: "embed",
@@ -569,7 +573,7 @@ describe("Highlight Colors in Embeds", () => {
   });
 
   it("leaves a Highlight literal when the Embeds plugin stands alone", () => {
-    const tree = processEmbed("![[Colored]]");
+    const tree = processEmbed("![[Highlighted]]");
 
     expect(tree.children[0]).toMatchObject({
       type: "embed",
