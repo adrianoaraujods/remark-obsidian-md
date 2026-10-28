@@ -1,6 +1,9 @@
 import type { Paragraph, Root, Strong } from "mdast";
+import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
+import type { Node } from "unist";
+import { visit } from "unist-util-visit";
 import { describe, expect, it } from "vitest";
 
 import remarkObsidianMd, { remarkObsidianHighlights } from "../src/index.js";
@@ -19,6 +22,15 @@ function process(markdown: string): Root {
   return processor.runSync(processor.parse(markdown));
 }
 
+function processGfm(markdown: string): Root {
+  const processor = unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkObsidianMd, { resolver });
+
+  return processor.runSync(processor.parse(markdown));
+}
+
 function processStandalone(markdown: string): Root {
   const processor = unified().use(remarkParse).use(remarkObsidianHighlights);
 
@@ -30,6 +42,33 @@ function highlightOf(tree: Root) {
   const paragraph = tree.children[0] as Paragraph;
 
   return paragraph.children[0];
+}
+
+/** The visible text of a node. */
+function textOf(node: Node): string {
+  if ("children" in node)
+    return node.children.map((child) => textOf(child)).join("");
+  if ("value" in node && typeof node.value === "string") return node.value;
+  return "";
+}
+
+/** Every mark element of a tree, with the color it carries and its text. */
+function marksOf(tree: Root): { color?: string; text: string }[] {
+  const marks: { color?: string; text: string }[] = [];
+
+  visit(tree, (node) => {
+    const data = node.data as
+      | { hName?: string; hProperties?: Record<string, string> }
+      | undefined;
+    if (data?.hName !== "mark") return;
+
+    marks.push({
+      color: data.hProperties?.["data-highlight"],
+      text: textOf(node),
+    });
+  });
+
+  return marks;
 }
 
 describe("Highlights", () => {
@@ -142,31 +181,146 @@ describe("Highlights", () => {
     expect(JSON.stringify(tree)).not.toContain("obsidianComment");
   });
 
-  it("keeps a plain highlight a text node", () => {
+  it("keeps a plain highlight free of a color attribute", () => {
     const tree = process("==marked==");
 
     expect(tree.children[0]).toMatchObject({
       type: "paragraph",
       children: [{ type: "text", value: "marked", data: { hName: "mark" } }],
     });
+    expect(JSON.stringify(tree)).not.toContain("data-highlight");
   });
 
-  it("does not transform highlight colors", () => {
+  it("publishes each of the six Highlight Colors", () => {
+    const colors = [
+      ["🔴", "red"],
+      ["🟠", "orange"],
+      ["🟡", "yellow"],
+      ["🟢", "green"],
+      ["🔵", "blue"],
+      ["🟣", "purple"],
+    ];
+
+    for (const [emoji, color] of colors) {
+      const tree = process(`==${emoji}text==`);
+
+      expect(tree.children[0]).toMatchObject({
+        type: "paragraph",
+        children: [
+          {
+            type: "text",
+            value: "text",
+            data: { hName: "mark", hProperties: { "data-highlight": color } },
+          },
+        ],
+      });
+    }
+  });
+
+  it("publishes the square emoji of every Highlight Color", () => {
+    const colors = [
+      ["🟥", "red"],
+      ["🟧", "orange"],
+      ["🟨", "yellow"],
+      ["🟩", "green"],
+      ["🟦", "blue"],
+      ["🟪", "purple"],
+    ];
+
+    for (const [emoji, color] of colors) {
+      const tree = process(`==${emoji}text==`);
+
+      expect(tree.children[0]).toMatchObject({
+        type: "paragraph",
+        children: [
+          {
+            type: "text",
+            value: "text",
+            data: { hName: "mark", hProperties: { "data-highlight": color } },
+          },
+        ],
+      });
+    }
+  });
+
+  it("turns a colored highlight into a mark element carrying the color", () => {
     const tree = process("==🔴red==");
 
     expect(tree.children[0]).toMatchObject({
       type: "paragraph",
-      children: [{ type: "text", value: "==🔴red==" }],
+      children: [
+        {
+          type: "text",
+          value: "red",
+          data: { hName: "mark", hProperties: { "data-highlight": "red" } },
+        },
+      ],
     });
   });
 
-  it("does not transform a highlight color holding elements", () => {
-    const tree = process("==🔴red **bold**==");
+  it("keeps an unsupported emoji inside the highlight as text", () => {
+    const tree = process("==🍎red==");
 
     expect(tree.children[0]).toMatchObject({
       type: "paragraph",
-      children: [{ type: "text", value: "==🔴red **bold**==" }],
+      children: [{ type: "text", value: "🍎red", data: { hName: "mark" } }],
     });
+    expect(JSON.stringify(tree)).not.toContain("data-highlight");
+  });
+
+  it("counts only the first emoji as the Highlight Color", () => {
+    const tree = process("==🔴🟢x==");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "text",
+          value: "🟢x",
+          data: { hName: "mark", hProperties: { "data-highlight": "red" } },
+        },
+      ],
+    });
+  });
+
+  it("publishes a highlight holding only the color emoji as an empty mark", () => {
+    const tree = process("==🔴==");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "text",
+          value: "",
+          data: { hName: "mark", hProperties: { "data-highlight": "red" } },
+        },
+      ],
+    });
+  });
+
+  it("keeps the color of a highlight holding elements", () => {
+    const tree = process("==🔴red **bold**==");
+
+    expect(highlightOf(tree)).toMatchObject({
+      type: "obsidianHighlight",
+      value: "==🔴red **bold**==",
+      data: { hName: "mark", hProperties: { "data-highlight": "red" } },
+      children: [
+        { type: "text", value: "red " },
+        { type: "strong", children: [{ type: "text", value: "bold" }] },
+      ],
+    });
+  });
+
+  it("points the parsed children at the content range behind the color emoji", () => {
+    const tree = process("==🔴**bold**==");
+    const strong = (highlightOf(tree) as { children: Strong[] }).children[0];
+    const range = {
+      start: { line: 1, column: 5, offset: 4 },
+      end: { line: 1, column: 13, offset: 12 },
+    };
+
+    expect(strong?.position).toEqual(range);
   });
 
   it("turns a highlight inside a footnote into a mark element", () => {
@@ -249,5 +403,73 @@ describe("Highlights", () => {
         },
       ],
     });
+  });
+
+  it("transforms a colored highlight through the per-feature plugin", () => {
+    const tree = processStandalone("==🔴red==");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        {
+          type: "text",
+          value: "red",
+          data: { hName: "mark", hProperties: { "data-highlight": "red" } },
+        },
+      ],
+    });
+  });
+
+  it("keeps the color of a highlight holding elements through the per-feature plugin", () => {
+    const tree = processStandalone("==🔴**bold**==");
+
+    expect(highlightOf(tree)).toMatchObject({
+      type: "obsidianHighlight",
+      data: { hName: "mark", hProperties: { "data-highlight": "red" } },
+      children: [
+        { type: "strong", children: [{ type: "text", value: "bold" }] },
+      ],
+    });
+  });
+
+  it("keeps the color in every phrasing context", () => {
+    const tree = process(
+      "# ==🔴heading==\n\n- ==🔴item==\n\n**==🔴strong==** _==🔴em==_",
+    );
+
+    expect(marksOf(tree)).toEqual([
+      { color: "red", text: "heading" },
+      { color: "red", text: "item" },
+      { color: "red", text: "strong" },
+      { color: "red", text: "em" },
+    ]);
+  });
+
+  it("keeps the color in a table cell", () => {
+    const tree = processGfm("| construct |\n| --------- |\n| ==🔴cell== |");
+
+    expect(marksOf(tree)).toEqual([{ color: "red", text: "cell" }]);
+  });
+
+  it("keeps the color in a blockquote and a Callout body", () => {
+    const tree = process("> ==🔴quote==\n\n> [!note]\n> ==🔴callout==");
+
+    expect(marksOf(tree)).toEqual([
+      { color: "red", text: "quote" },
+      { color: "red", text: "callout" },
+    ]);
+  });
+
+  it("keeps the color inside a Footnote", () => {
+    const tree = process("Note^[==🔴footnote==]");
+
+    expect(marksOf(tree)).toEqual([{ color: "red", text: "footnote" }]);
+  });
+
+  it("leaves the color emoji inside code alone", () => {
+    const tree = process("`==🔴inline==`\n\n```\n==🔴block==\n```");
+
+    expect(marksOf(tree)).toEqual([]);
+    expect(JSON.stringify(tree)).toContain("🔴");
   });
 });

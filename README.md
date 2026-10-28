@@ -205,7 +205,99 @@ import {
 
 ### Highlights
 
-`==text==` renders `<mark>text</mark>` in paragraphs, table cells and Callout bodies, but not inside code. Its content is parsed as inline Markdown with the Note's own syntax: `==x^[[[Note|Alias]]]==` publishes as `<mark>x<sup><a href="…">Alias</a></sup></mark>`, and bold, italic, code, Wiki Links and Comments work inside it too. Highlight colors (`==🔴red==`) are not transformed.
+`==text==` renders `<mark>text</mark>` in paragraphs, table cells and Callout bodies, but not inside code. Its content is parsed as inline Markdown with the Note's own syntax: `==x^[[[Note|Alias]]]==` publishes as `<mark>x<sup><a href="…">Alias</a></sup></mark>`, and bold, italic, code, Wiki Links and Comments work inside it too.
+
+A Highlight Color is set by a color emoji at the start of the content, Obsidian 1.14's syntax: `==🔴Important==` publishes as `<mark data-highlight="red">Important</mark>`. Six colors are recognized, each through its circle and its square emoji — 🔴🟥 red, 🟠🟧 orange, 🟡🟨 yellow, 🟢🟩 green, 🔵🟦 blue, 🟣🟪 purple. The emoji is not rendered: it is stripped before the content is parsed, and the Highlight's raw source stays in the Note. Only the first emoji counts, so `==🔴🟢x==` is a red Highlight showing `🟢x`; an emoji that names no color (`==🍎red==`) is not a color either — the Highlight still renders, in the theme's default color, with the emoji visible inside it. A Highlight with no color carries no color attribute. The color survives every context a Highlight works in — headings, list items, emphasis, strong, table cells, blockquotes, Callout bodies and Footnotes.
+
+The package ships no CSS: theme the colors by targeting the attribute. This block uses Obsidian's own variable names, so Obsidian snippets port over unchanged (Obsidian scopes the palette under `.theme-light` / `.theme-dark`; here `prefers-color-scheme` picks the palette):
+
+```css
+:root {
+  /* Obsidian's color palette */
+  --color-red: #e93147;
+  --color-orange: #ec7500;
+  --color-yellow: #e0ac00;
+  --color-green: #08b94e;
+  --color-blue: #086ddd;
+  --color-purple: #7852ee;
+
+  /* Highlights */
+  --highlight-opacity: 30%;
+  --highlight-background: var(
+    --text-highlight-bg,
+    var(--highlight-background-yellow)
+  );
+  --highlight-background-red: color-mix(
+    in oklch,
+    var(--color-red) var(--highlight-opacity),
+    transparent
+  );
+  --highlight-background-orange: color-mix(
+    in oklch,
+    var(--color-orange) var(--highlight-opacity),
+    transparent
+  );
+  --highlight-background-yellow: color-mix(
+    in oklch,
+    var(--color-yellow) var(--highlight-opacity),
+    transparent
+  );
+  --highlight-background-green: color-mix(
+    in oklch,
+    var(--color-green) var(--highlight-opacity),
+    transparent
+  );
+  --highlight-background-blue: color-mix(
+    in oklch,
+    var(--color-blue) var(--highlight-opacity),
+    transparent
+  );
+  --highlight-background-purple: color-mix(
+    in oklch,
+    var(--color-purple) var(--highlight-opacity),
+    transparent
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-red: #fb464c;
+    --color-orange: #e9973f;
+    --color-yellow: #e0de71;
+    --color-green: #44cf6e;
+    --color-blue: #027aff;
+    --color-purple: #a882ff;
+  }
+}
+
+mark {
+  background-color: var(--highlight-background);
+  color: var(--text-normal, inherit);
+}
+
+mark .internal-link {
+  color: var(--text-normal, inherit);
+}
+
+mark[data-highlight="red"] {
+  --highlight-background: var(--highlight-background-red);
+}
+mark[data-highlight="orange"] {
+  --highlight-background: var(--highlight-background-orange);
+}
+mark[data-highlight="yellow"] {
+  --highlight-background: var(--highlight-background-yellow);
+}
+mark[data-highlight="green"] {
+  --highlight-background: var(--highlight-background-green);
+}
+mark[data-highlight="blue"] {
+  --highlight-background: var(--highlight-background-blue);
+}
+mark[data-highlight="purple"] {
+  --highlight-background: var(--highlight-background-purple);
+}
+```
 
 ### Callouts
 
@@ -231,7 +323,6 @@ These features are intentionally out of scope, each with the plugin that covers 
 | :----------------------------------- | :-------------------------------------------------------------------------------------------------------- |
 | Tags (`#tag`)                        | Rendered as plain text; no maintained plugin — post-process yourself.                                       |
 | GFM reference footnotes (`[^id]`)    | [`remark-gfm`](https://github.com/remarkjs/remark-gfm)                                                     |
-| Highlight colors (`==🔴red==`)       | Not transformed; post-process or extend the Highlight transform.                                           |
 | Math (`$…$`, `$$…$$`)                | [`remark-math`](https://github.com/remarkjs/remark-math) + [`rehype-katex`](https://github.com/remarkjs/remark-math) |
 | Code blocks / syntax highlighting   | `remark-rehype` + [`rehype-highlight`](https://github.com/remarkjs/remark-rehype) or Shiki                  |
 | Mermaid diagrams                     | [`rehype-mermaid`](https://github.com/remcohaszing/rehype-mermaid)                                         |
