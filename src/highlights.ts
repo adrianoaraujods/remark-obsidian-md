@@ -102,33 +102,26 @@ export function highlightFromMarkdown(
         node.value = this.sliceSerialize(token);
 
         const content = node.value.slice(2, -2);
-        const marker = parseColorMarker(content);
+        const { highlightColor, length } = parseHighlightColor(content);
 
         // The Highlight and Embed tokenizers are left out: the first keeps a
         // nested `==` literal, the second keeps an Embed — a block construct
         // — literal.
-        const children = parseInlineContent(
-          content.slice(marker.length),
-          processor,
-          [highlightSyntax, embedSyntax],
-        );
+        const children = parseInlineContent(content.slice(length), processor, [
+          highlightSyntax,
+          embedSyntax,
+        ]);
 
         // Plain text keeps publishing as a text node; content that holds
         // elements becomes a parent carrying the parsed content.
         if (children && !isPlainText(children)) {
           node.children = children;
-          node.data = {
-            hName: "mark",
-            hProperties: marker.color ? { "data-highlight": marker.color } : {},
-          };
+          node.data = highlightData(highlightColor);
 
           // Every node of the parsed content points at the Highlight's content
           // range: the nested parse's own positions are relative to it. The
-          // color marker shifts the range by its own length.
-          applyContentPosition(
-            node,
-            contentPosition(token, 2 + marker.length, -2),
-          );
+          // Highlight Color emoji shifts the range by its own length.
+          applyContentPosition(node, contentPosition(token, 2 + length, -2));
         }
 
         this.exit(token);
@@ -139,7 +132,7 @@ export function highlightFromMarkdown(
 
 /**
  * Obsidian 1.14's Highlight Colors: the twelve emoji it accepts, mapped to
- * the six color names its reading view emits.
+ * the six Highlight Colors its reading view emits.
  */
 const HIGHLIGHT_COLORS: Record<string, string> = {
   "🔴": "red",
@@ -158,14 +151,29 @@ const HIGHLIGHT_COLORS: Record<string, string> = {
 
 /**
  * The Highlight Color at the start of a Highlight's content: Obsidian
- * inspects the first code point only, and an emoji outside the map is not a
- * color. The length is the marker's own, so the content range shifts with it.
+ * inspects the first code point only, and an emoji outside the map names no
+ * Highlight Color. The length is the emoji's own, so the content range shifts
+ * with it.
  */
-function parseColorMarker(content: string): { color: string; length: number } {
+function parseHighlightColor(content: string): {
+  highlightColor?: string;
+  length: number;
+} {
   const codePoint = content.codePointAt(0);
-  const marker = codePoint === undefined ? "" : String.fromCodePoint(codePoint);
-  const color = HIGHLIGHT_COLORS[marker] ?? "";
-  return { color, length: color ? marker.length : 0 };
+  const emoji = codePoint === undefined ? "" : String.fromCodePoint(codePoint);
+  const highlightColor = HIGHLIGHT_COLORS[emoji];
+
+  return highlightColor
+    ? { highlightColor, length: emoji.length }
+    : { length: 0 };
+}
+
+/** The data a Highlight carries: a mark element with its Highlight Color. */
+function highlightData(highlightColor: string | undefined) {
+  return {
+    hName: "mark",
+    hProperties: highlightColor ? { "data-highlight": highlightColor } : {},
+  };
 }
 
 export function configureHighlights(
@@ -196,17 +204,12 @@ export function transformHighlights(tree: Root): void {
     if ("children" in node) return;
 
     const content = node.value.slice(2, -2);
-    const marker = parseColorMarker(content);
+    const { highlightColor, length } = parseHighlightColor(content);
 
     parent.children[index] = {
       type: "text",
-      value: content.slice(marker.length),
-      data: {
-        hName: "mark",
-        ...(marker.color
-          ? { hProperties: { "data-highlight": marker.color } }
-          : {}),
-      },
+      value: content.slice(length),
+      data: highlightData(highlightColor),
     };
   });
 }
