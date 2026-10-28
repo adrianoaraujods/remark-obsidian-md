@@ -4,7 +4,10 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { describe, expect, it } from "vitest";
 
-import remarkObsidianMd, { remarkObsidianFootnotes } from "../src/index.js";
+import remarkObsidianMd, {
+  remarkObsidianFootnotes,
+  remarkObsidianHighlights,
+} from "../src/index.js";
 import { mapResolver } from "../src/resolver.js";
 import { githubSlugger, textOf } from "../src/utils.js";
 
@@ -43,6 +46,16 @@ function process(markdown: string): Root {
 
 function processStandalone(markdown: string): Root {
   const processor = unified().use(remarkParse).use(remarkObsidianFootnotes);
+
+  return processor.runSync(processor.parse(markdown));
+}
+
+/** Highlights and Footnotes composed by hand, like a user would. */
+function processHighlightsFootnotes(markdown: string): Root {
+  const processor = unified()
+    .use(remarkParse)
+    .use(remarkObsidianHighlights)
+    .use(remarkObsidianFootnotes);
 
   return processor.runSync(processor.parse(markdown));
 }
@@ -618,6 +631,102 @@ describe("Footnotes in phrasing contexts", () => {
               ],
             },
           ],
+        },
+      ],
+    });
+  });
+});
+
+describe("Highlight Colors in Footnotes", () => {
+  it("keeps the Highlight Color of a Highlight inside a Footnote", () => {
+    const tree = process("Note^[==🔴watch this==]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "paragraph",
+      children: [
+        { type: "text", value: "Note" },
+        {
+          type: "obsidianFootnote",
+          value: "==🔴watch this==",
+          data: { hName: "sup", hProperties: {} },
+          children: [
+            {
+              type: "text",
+              value: "watch this",
+              data: {
+                hName: "mark",
+                hProperties: { "data-highlight": "red" },
+              },
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("keeps the Highlight Color and the inline Markdown of a Highlight inside a Footnote", () => {
+    const tree = process("Note^[==🔴*em* [[Wiki Link]]==]");
+
+    expect(footnoteOf(tree)).toMatchObject({
+      type: "obsidianFootnote",
+      value: "==🔴*em* [[Wiki Link]]==",
+      children: [
+        {
+          type: "obsidianHighlight",
+          value: "==🔴*em* [[Wiki Link]]==",
+          data: {
+            hName: "mark",
+            hProperties: { "data-highlight": "red" },
+          },
+          children: [
+            { type: "emphasis", children: [{ type: "text", value: "em" }] },
+            { type: "text", value: " " },
+            {
+              type: "link",
+              url: "/wiki-link",
+              children: [{ type: "text", value: "Wiki Link" }],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("points the Footnote's content at the range the color marker did not shift", () => {
+    const tree = process("Note^[==🔴*em*==]");
+    const highlight = footnoteOf(tree).children?.[0] as Emphasis;
+    const range = {
+      start: { line: 1, column: 7, offset: 6 },
+      end: { line: 1, column: 17, offset: 16 },
+    };
+
+    expect(highlight.position).toEqual(range);
+    expect(highlight.children?.[0]?.position).toEqual(range);
+  });
+
+  it("publishes a Footnote without a color unchanged", () => {
+    const tree = process("Note^[plain footnote]");
+
+    expect(footnoteOf(tree)).toEqual({
+      type: "text",
+      value: "plain footnote",
+      data: { hName: "sup" },
+    });
+  });
+
+  it("keeps the Highlight Color through the per-feature plugins", () => {
+    const tree = processHighlightsFootnotes("Note^[==🔴watch this==]");
+
+    expect(footnoteOf(tree)).toMatchObject({
+      type: "obsidianFootnote",
+      children: [
+        {
+          type: "text",
+          value: "watch this",
+          data: {
+            hName: "mark",
+            hProperties: { "data-highlight": "red" },
+          },
         },
       ],
     });
