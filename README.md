@@ -205,7 +205,7 @@ import {
 
 ### Highlights
 
-`==text==` renders `<mark>text</mark>` in paragraphs, table cells and Callout bodies, but not inside code. Highlight colors (`==🔴red==`) are not transformed.
+`==text==` renders `<mark>text</mark>` in paragraphs, table cells and Callout bodies, but not inside code. Its content is parsed as inline Markdown with the Note's own syntax: `==x^[[[Note|Alias]]]==` publishes as `<mark>x<sup><a href="…">Alias</a></sup></mark>`, and bold, italic, code, Wiki Links and Comments work inside it too. Highlight colors (`==🔴red==`) are not transformed.
 
 ### Callouts
 

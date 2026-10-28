@@ -122,6 +122,18 @@ export interface ObsidianFootnoteNode extends Literal {
 }
 
 /**
+ * Intermediate node for `==…==`. It never reaches the output: a Highlight
+ * whose content holds elements becomes a parent carrying the parsed content,
+ * and a Highlight whose content is plain text becomes a text node carrying
+ * `hName: "mark"`. `value` holds the raw source; `children` holds the parsed
+ * content once the content holds elements.
+ */
+export interface ObsidianHighlightNode extends Literal {
+  type: "obsidianHighlight";
+  children?: PhrasingContent[];
+}
+
+/**
  * A Callout. Unlike `embed`, its wrapper structure has no native MDAST
  * equivalent, so title/content wrappers use the internal `calloutPart` node.
  */
@@ -140,12 +152,14 @@ declare module "mdast" {
     wikiLink: WikiLinkNode;
     embed: EmbedNode;
     obsidianFootnote: ObsidianFootnoteNode;
+    obsidianHighlight: ObsidianHighlightNode;
   }
 
   interface RootContentMap {
     wikiLink: WikiLinkNode;
     embed: EmbedNode;
     obsidianFootnote: ObsidianFootnoteNode;
+    obsidianHighlight: ObsidianHighlightNode;
     callout: CalloutNode;
     calloutPart: CalloutPartNode;
   }

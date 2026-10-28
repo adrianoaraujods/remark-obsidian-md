@@ -10,3 +10,5 @@ Obsidian's inline constructs (Wiki Link, Embed, Highlight, inline Comment, inlin
 ## Consequences
 
 Wiki Links inside standard link text are not tokenized (they render literally), avoiding nested `<a>` elements.
+
+Inline constructs that capture their content as raw source (the inline Footnote `^[…]` and the Highlight `==…==`) parse that content with a nested inline parse, so what they hold behaves as it does in the Note; the nested parse's positions are relative, so every node inside carries the construct's content range.
