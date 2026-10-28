@@ -714,6 +714,36 @@ describe("Highlight Colors in Footnotes", () => {
     });
   });
 
+  it("points the Footnote's content range at the source after the color emoji is stripped", () => {
+    const source = "Note^[==🔴**bold** [[Wiki Link]]==]";
+    const tree = process(source);
+    const footnote = footnoteOf(tree);
+    const highlight = footnote.children?.[0] as unknown as Parent;
+    const strong = highlight.children?.[0] as Parent;
+    const contentRange = {
+      start: { line: 1, column: 7, offset: 6 },
+      end: { line: 1, column: 35, offset: 34 },
+    };
+
+    expect(footnote.position).toEqual({
+      start: { line: 1, column: 5, offset: 4 },
+      end: { line: 1, column: 36, offset: 35 },
+    });
+    expect(highlight.position).toEqual(contentRange);
+    expect(strong.position).toEqual(contentRange);
+    expect(source.slice(6, 34)).toBe("==🔴**bold** [[Wiki Link]]==");
+  });
+
+  it("keeps a Highlight literal through the per-feature Footnote plugin", () => {
+    const tree = processStandalone("Note^[==🔴watch this==]");
+
+    expect(footnoteOf(tree)).toEqual({
+      type: "text",
+      value: "==🔴watch this==",
+      data: { hName: "sup" },
+    });
+  });
+
   it("keeps the Highlight Color through the per-feature plugins", () => {
     const tree = processHighlightsFootnotes("Note^[==🔴watch this==]");
 
