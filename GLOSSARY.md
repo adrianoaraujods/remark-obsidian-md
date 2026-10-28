@@ -50,6 +50,10 @@ _Avoid_: transclusion, include
 Text wrapped in `==…==`, whose content is parsed as inline Markdown.
 _Avoid_: mark, marker, selection
 
+**Highlight Color**:
+Color a Highlight carries, set by a color emoji at the start of the Highlight's content.
+_Avoid_: color, colour, swatch, style
+
 **Comment**:
 Text wrapped in `%%…%%` and omitted from rendered output.
 _Avoid_: annotation, note
