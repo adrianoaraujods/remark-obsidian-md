@@ -124,6 +124,7 @@ export type EmbedContext = {
   wikiLinks: WikiLinkContext;
   readNote: (path: string) => string | undefined;
   maxDepth: number;
+  showFrontmatter: boolean;
 };
 
 type EmbedState = {
@@ -363,7 +364,7 @@ function parseEmbedded(
   // The embedded Note's Frontmatter is hidden: it is stripped before the
   // source is parsed, so whole-Note, section, Block ID and nested Embeds are
   // all clean.
-  const { body } = splitFrontmatter(markdown);
+  const { body, yaml } = splitFrontmatter(markdown);
   const tree = processor.runSync(processor.parse(body)) as Root;
 
   if (parsed.subpath) {
@@ -376,6 +377,10 @@ function parseEmbedded(
     if (!selected) return undefined;
 
     tree.children = selected;
+  } else if (context.showFrontmatter && yaml) {
+    // A whole-Note Embed can show its Frontmatter as a YAML code block,
+    // holding the YAML source verbatim, ahead of the Note's body.
+    tree.children.unshift({ type: "code", lang: "yaml", value: yaml });
   }
 
   transformWikiLinks(tree, context.wikiLinks);
@@ -564,6 +569,7 @@ export function configureEmbeds(
     wikiLinks: options.wikiLinks,
     readNote: options.readNote ?? (() => undefined),
     maxDepth: options.maxDepth ?? 4,
+    showFrontmatter: options.showFrontmatter ?? false,
   };
 }
 

@@ -113,6 +113,18 @@ const notes: Record<string, string> = {
   "/Sequence YAML.md": "---\n- one\n- two\n---\n\nSequence body",
   "/Prose YAML.md": "---\njust prose\n---\n\nProse body",
   "/Empty Frontmatter.md": "---\n---\n\nEmpty body",
+  "/Nested Frontmatter.md": [
+    "---",
+    "title: Nested title",
+    "tags:",
+    "  - one",
+    "  - two",
+    "meta:",
+    "  key: value",
+    "---",
+    "",
+    "Nested frontmatter body",
+  ].join("\n"),
 };
 
 const resolver = mapResolver({
@@ -151,6 +163,7 @@ const resolver = mapResolver({
   "Sequence YAML": { path: "/Sequence YAML.md" },
   "Prose YAML": { path: "/Prose YAML.md" },
   "Empty Frontmatter": { path: "/Empty Frontmatter.md" },
+  "Nested Frontmatter": { path: "/Nested Frontmatter.md" },
 });
 
 function readNote(path: string): string | undefined {
@@ -163,7 +176,11 @@ function process(
 ): Root {
   const processor = unified()
     .use(remarkParse)
-    .use(remarkObsidianMd, { resolver, embeds: { readNote }, ...options });
+    .use(remarkObsidianMd, {
+      resolver,
+      ...options,
+      embeds: { readNote, ...options.embeds },
+    });
 
   return processor.runSync(processor.parse(markdown));
 }
@@ -563,12 +580,108 @@ describe("Frontmatter in Embeds", () => {
       { target: "Empty Frontmatter", content: "", breaks: 2 },
     ];
 
-    for (const { target, content, breaks } of cases) {
-      const json = JSON.stringify(process(`![[${target}]]`));
+    for (const showFrontmatter of [false, true]) {
+      for (const { target, content, breaks } of cases) {
+        const json = JSON.stringify(
+          process(`![[${target}]]`, { embeds: { showFrontmatter } }),
+        );
 
-      expect(json.match(/"type":"thematicBreak"/g)).toHaveLength(breaks);
-      if (content) expect(json).toContain(content);
+        expect(json.match(/"type":"thematicBreak"/g)).toHaveLength(breaks);
+        expect(json).not.toContain('"type":"code"');
+        if (content) expect(json).toContain(content);
+      }
     }
+  });
+});
+
+describe("showing Frontmatter in Embeds", () => {
+  it("renders the Frontmatter of a whole-Note Embed as a YAML code block", () => {
+    const tree = process("![[With Frontmatter]]", {
+      embeds: { showFrontmatter: true },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "code",
+          lang: "yaml",
+          value: "title: Hidden title\ncssclasses: [wide, red]",
+        },
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Frontmatter body" }],
+        },
+      ],
+    });
+  });
+  it("keeps nested values and lists in the YAML code block intact", () => {
+    const tree = process("![[Nested Frontmatter]]", {
+      embeds: { showFrontmatter: true },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "code",
+          lang: "yaml",
+          value: [
+            "title: Nested title",
+            "tags:",
+            "  - one",
+            "  - two",
+            "meta:",
+            "  key: value",
+          ].join("\n"),
+        },
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Nested frontmatter body" }],
+        },
+      ],
+    });
+  });
+
+  it("strips the Frontmatter of a section Embed even with the option on", () => {
+    const tree = process("![[Frontmatter Sections#Alpha]]", {
+      embeds: { showFrontmatter: true },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "heading",
+          depth: 1,
+          children: [{ type: "text", value: "Alpha" }],
+        },
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Alpha body" }],
+        },
+      ],
+    });
+    expect(JSON.stringify(tree)).not.toContain('"type":"code"');
+    expect(JSON.stringify(tree)).not.toContain("Hidden title");
+  });
+
+  it("strips the Frontmatter of a Block ID Embed even with the option on", () => {
+    const tree = process("![[Frontmatter Blocks#^target]]", {
+      embeds: { showFrontmatter: true },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Referenced paragraph" }],
+        },
+      ],
+    });
+    expect(JSON.stringify(tree)).not.toContain('"type":"code"');
+    expect(JSON.stringify(tree)).not.toContain("Hidden title");
   });
 });
 
@@ -591,6 +704,23 @@ describe("remarkObsidianEmbeds (standalone)", () => {
       type: "embed",
       data: { hName: "div" },
       children: [{ type: "paragraph" }],
+    });
+  });
+  it("shows the Frontmatter through the per-feature plugin", () => {
+    const tree = processEmbed("![[With Frontmatter]]", {
+      showFrontmatter: true,
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "code",
+          lang: "yaml",
+          value: "title: Hidden title\ncssclasses: [wide, red]",
+        },
+        { type: "paragraph" },
+      ],
     });
   });
 });
