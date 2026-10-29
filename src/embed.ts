@@ -25,6 +25,7 @@ import { SKIP, visit } from "unist-util-visit";
 import { type BlockIndex, processBlockIds } from "./block-id.js";
 import { addExtension } from "./extensions.js";
 import { transformHighlights } from "./highlights.js";
+import { splitFrontmatter } from "./note-frontmatter.js";
 import type {
   EmbedNode,
   EmbedsOptions,
@@ -32,12 +33,7 @@ import type {
   ResolvedTarget,
   WikiLinkContext,
 } from "./types.js";
-import {
-  type ParsedWikiLink,
-  parseWikiLink,
-  splitFrontmatter,
-  textOf,
-} from "./utils.js";
+import { type ParsedWikiLink, parseWikiLink, textOf } from "./utils.js";
 import {
   defaultWikiLinkContext,
   transformWikiLinks,
@@ -361,10 +357,11 @@ function parseEmbedded(
   data.micromarkExtensions = micromarkExtensions;
   data.fromMarkdownExtensions = fromMarkdownExtensions;
 
-  // The embedded Note's Frontmatter is hidden: it is stripped before the
-  // source is parsed, so whole-Note, section, Block ID and nested Embeds are
-  // all clean.
-  const { body, yaml } = splitFrontmatter(markdown);
+  // The embedded Note's Frontmatter is hidden by default: it is stripped
+  // before the source is parsed, so whole-Note, section, Block ID and nested
+  // Embeds are all clean. With `showFrontmatter` on, a whole-Note Embed puts
+  // it back as a YAML code block.
+  const { body, yamlSource } = splitFrontmatter(markdown);
   const tree = processor.runSync(processor.parse(body)) as Root;
 
   if (parsed.subpath) {
@@ -377,10 +374,11 @@ function parseEmbedded(
     if (!selected) return undefined;
 
     tree.children = selected;
-  } else if (context.showFrontmatter && yaml) {
-    // A whole-Note Embed can show its Frontmatter as a YAML code block,
-    // holding the YAML source verbatim, ahead of the Note's body.
-    tree.children.unshift({ type: "code", lang: "yaml", value: yaml });
+  } else if (context.showFrontmatter && yamlSource) {
+    // A whole-Note Embed shows its Frontmatter as a YAML code block,
+    // holding the YAML source as written (line endings normalized to LF),
+    // ahead of the Note's body.
+    tree.children.unshift({ type: "code", lang: "yaml", value: yamlSource });
   }
 
   transformWikiLinks(tree, context.wikiLinks);

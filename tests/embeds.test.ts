@@ -14,6 +14,11 @@ import type {
   Resolver,
 } from "../src/types.js";
 
+/** A Note with a Frontmatter block and a body. */
+function withFrontmatter(frontmatter: string, body: string): string {
+  return `---\n${frontmatter}\n---\n\n${body}`;
+}
+
 const notes: Record<string, string> = {
   "/A.md": "Alpha content",
   "/B.md": "Bravo content",
@@ -69,62 +74,46 @@ const notes: Record<string, string> = {
     "==🔴section==",
   ].join("\n"),
   "/Plain.md": "Plain content",
-  "/With Frontmatter.md": [
-    "---",
-    "title: Hidden title",
-    "cssclasses: [wide, red]",
-    "---",
-    "",
+  "/With Frontmatter.md": withFrontmatter(
+    "title: Hidden title\ncssclasses: [wide, red]",
     "Frontmatter body",
-  ].join("\n"),
-  "/Frontmatter Sections.md": [
-    "---",
+  ),
+  "/Frontmatter Sections.md": withFrontmatter(
     "title: Hidden title",
-    "---",
-    "",
-    "# Alpha",
-    "",
-    "Alpha body",
-  ].join("\n"),
-  "/Frontmatter Blocks.md": [
-    "---",
+    "# Alpha\n\nAlpha body",
+  ),
+  "/Frontmatter Blocks.md": withFrontmatter(
     "title: Hidden title",
-    "---",
-    "",
     "Referenced paragraph ^target",
-  ].join("\n"),
-  "/Frontmatter Nested.md": [
-    "---",
+  ),
+  "/Frontmatter Nested.md": withFrontmatter(
     "title: Hidden title",
-    "---",
-    "",
     "Nested body ![[Frontmatter Inner]]",
-  ].join("\n"),
-  "/Frontmatter Inner.md": [
-    "---",
+  ),
+  "/Frontmatter Inner.md": withFrontmatter(
     "title: Hidden inner title",
-    "---",
-    "",
     "Inner body",
-  ].join("\n"),
+  ),
+  "/Frontmatter Deep.md": withFrontmatter(
+    "title: Hidden deep title",
+    "Deep body ![[Frontmatter Nested]]",
+  ),
+  "/Frontmatter Mixed.md": withFrontmatter(
+    "title: Hidden mixed title",
+    "Mixed ![[Frontmatter Inner]] and ![[Frontmatter Sections#Alpha]]",
+  ),
+  "/Frontmatter CRLF.md":
+    "---\r\ntitle: Hidden title\r\ntags: [one]\r\n---\r\n\r\nCRLF body",
   "/BOM Frontmatter.md": "﻿---\ntitle: Hidden title\n---\n\nBOM body",
   "/Invalid YAML.md": "---\ntitle: [unclosed\n---\n\nInvalid body",
   "/No Closing Fence.md": "---\ntitle: Hidden title\n\nNo fence body",
   "/Sequence YAML.md": "---\n- one\n- two\n---\n\nSequence body",
   "/Prose YAML.md": "---\njust prose\n---\n\nProse body",
   "/Empty Frontmatter.md": "---\n---\n\nEmpty body",
-  "/Nested Frontmatter.md": [
-    "---",
-    "title: Nested title",
-    "tags:",
-    "  - one",
-    "  - two",
-    "meta:",
-    "  key: value",
-    "---",
-    "",
+  "/Nested Frontmatter.md": withFrontmatter(
+    "title: Nested title\ntags:\n  - one\n  - two\nmeta:\n  key: value",
     "Nested frontmatter body",
-  ].join("\n"),
+  ),
 };
 
 const resolver = mapResolver({
@@ -157,6 +146,9 @@ const resolver = mapResolver({
   "Frontmatter Blocks": { path: "/Frontmatter Blocks.md" },
   "Frontmatter Nested": { path: "/Frontmatter Nested.md" },
   "Frontmatter Inner": { path: "/Frontmatter Inner.md" },
+  "Frontmatter Deep": { path: "/Frontmatter Deep.md" },
+  "Frontmatter Mixed": { path: "/Frontmatter Mixed.md" },
+  "Frontmatter CRLF": { path: "/Frontmatter CRLF.md" },
   "BOM Frontmatter": { path: "/BOM Frontmatter.md" },
   "Invalid YAML": { path: "/Invalid YAML.md" },
   "No Closing Fence": { path: "/No Closing Fence.md" },
@@ -615,6 +607,7 @@ describe("showing Frontmatter in Embeds", () => {
       ],
     });
   });
+
   it("keeps nested values and lists in the YAML code block intact", () => {
     const tree = process("![[Nested Frontmatter]]", {
       embeds: { showFrontmatter: true },
@@ -639,6 +632,67 @@ describe("showing Frontmatter in Embeds", () => {
           type: "paragraph",
           children: [{ type: "text", value: "Nested frontmatter body" }],
         },
+      ],
+    });
+  });
+
+  it("shows the Frontmatter of a nested whole-Note Embed too", () => {
+    const tree = process("![[Frontmatter Nested]]", {
+      embeds: { showFrontmatter: true },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        { type: "code", lang: "yaml", value: "title: Hidden title" },
+        { type: "paragraph" },
+        {
+          type: "embed",
+          children: [
+            { type: "code", lang: "yaml", value: "title: Hidden inner title" },
+            { type: "paragraph" },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("shows the Frontmatter at any nesting depth", () => {
+    const tree = process("![[Frontmatter Deep]]", {
+      embeds: { showFrontmatter: true },
+    });
+    const json = JSON.stringify(tree);
+
+    expect(json).toContain("title: Hidden deep title");
+    expect(json).toContain("title: Hidden title");
+    expect(json).toContain("title: Hidden inner title");
+  });
+
+  it("never shows the Frontmatter of a nested section Embed", () => {
+    const tree = process("![[Frontmatter Mixed]]", {
+      embeds: { showFrontmatter: true },
+    });
+    const json = JSON.stringify(tree);
+
+    expect(json).toContain("title: Hidden mixed title");
+    expect(json).toContain("title: Hidden inner title");
+    expect(json).not.toContain("title: Hidden title");
+  });
+
+  it("normalizes CRLF line endings in the YAML code block", () => {
+    const tree = process("![[Frontmatter CRLF]]", {
+      embeds: { showFrontmatter: true },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "code",
+          lang: "yaml",
+          value: "title: Hidden title\ntags: [one]",
+        },
+        { type: "paragraph" },
       ],
     });
   });
@@ -706,6 +760,7 @@ describe("remarkObsidianEmbeds (standalone)", () => {
       children: [{ type: "paragraph" }],
     });
   });
+
   it("shows the Frontmatter through the per-feature plugin", () => {
     const tree = processEmbed("![[With Frontmatter]]", {
       showFrontmatter: true,
