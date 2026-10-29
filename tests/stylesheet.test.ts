@@ -153,6 +153,15 @@ describe("Stylesheet package boundary", () => {
     }
   });
 
+  it("writes Callout color alphas in a form browsers accept", () => {
+    // `--callout-color` is a comma-separated `r, g, b` triplet, and
+    // `rgb(r, g, b / a)` is invalid, so the tinted background and border
+    // would silently be dropped.
+    const css = readCss(resolveExport("./styles.css"));
+
+    expect(css).not.toMatch(/rgba?\(var\(--callout-color\)\s*\//);
+  });
+
   it("ships the Lucide license notice in the published package", () => {
     expect(pkg.files).toContain("LICENSE-LUCIDE");
     expect(readFileSync(resolve(root, "LICENSE-LUCIDE"), "utf8")).toContain(

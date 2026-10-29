@@ -102,9 +102,9 @@
   margin: 1rem 0;
   padding: 0;
   overflow: hidden;
-  border: 1px solid rgb(var(--callout-color) / 0.3);
+  border: 1px solid rgba(var(--callout-color), 0.3);
   border-radius: 0.5rem;
-  background-color: rgb(var(--callout-color) / 0.1);
+  background-color: rgba(var(--callout-color), 0.1);
   color: var(--text-normal, inherit);
 }
 
