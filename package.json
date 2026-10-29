@@ -28,10 +28,12 @@
     "dist"
   ],
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./styles.css": "./dist/styles.css",
+    "./styles/base.css": "./dist/styles/base.css"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-styles.mjs",
     "test": "vitest --coverage",
     "prepublishOnly": "pnpm run build",
     "lint": "biome check",
@@ -66,5 +68,8 @@
     "unist-util-select": "^5.1.0",
     "vfile": "^6.0.3",
     "vitest": "^5.0.5"
-  }
+  },
+  "sideEffects": [
+    "**/*.css"
+  ]
 }
