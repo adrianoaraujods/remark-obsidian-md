@@ -1,13 +1,14 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { extname, join, relative, sep } from "node:path";
 
+import { splitFrontmatter } from "./note-frontmatter.js";
 import type {
   FilesystemResolver,
   NoteMetadata,
   ResolvedTarget,
   Resolver,
 } from "./types.js";
-import { normalizePath, splitFrontmatter } from "./utils.js";
+import { normalizePath } from "./utils.js";
 
 /**
  * How to pick a winner when several Notes share a basename or Alias.
@@ -134,17 +135,13 @@ function beats(
 }
 
 function readNote(file: string, filename: string): NoteMetadata {
-  const frontmatter = readFrontmatter(file);
+  const { frontmatter } = splitFrontmatter(readFileSync(file, "utf8"));
 
   return {
     title: filename.replace(/\.md$/i, ""),
     aliases: toStringArray(frontmatter.aliases),
     cssclasses: toStringArray(frontmatter.cssclasses),
   };
-}
-
-function readFrontmatter(file: string): Record<string, unknown> {
-  return splitFrontmatter(readFileSync(file, "utf8")).frontmatter;
 }
 
 function toStringArray(value: unknown): string[] {
