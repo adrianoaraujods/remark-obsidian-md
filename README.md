@@ -14,6 +14,7 @@
 - [Options](#options)
 - [Per-feature plugins](#per-feature-plugins)
 - [Features](#features)
+- [Styling](#styling)
 - [Deliberately unsupported](#deliberately-unsupported)
 - [Frontmatter helper](#frontmatter-helper)
 - [Types](#types)
@@ -211,99 +212,11 @@ import {
 
 A Highlight Color is set by a color emoji at the start of the content, Obsidian 1.14's syntax: `==🔴Important==` publishes as `<mark data-highlight="red">Important</mark>`. Six colors are recognized, each through its circle and its square emoji — 🔴🟥 red, 🟠🟧 orange, 🟡🟨 yellow, 🟢🟩 green, 🔵🟦 blue, 🟣🟪 purple. The emoji is not rendered: it is stripped before the content is parsed, and the Highlight's raw source stays in the Note. Only the first emoji counts, so `==🔴🟢x==` is a red Highlight showing `🟢x`; an emoji that names no color (`==🍎red==`) is not a color either — the Highlight still renders, in the theme's default color, with the emoji visible inside it. A Highlight with no color carries no color attribute. The color survives every context a Highlight works in — headings, list items, emphasis, strong, table cells, blockquotes, Callout bodies and Footnotes.
 
-The package ships no CSS: theme the colors by targeting the attribute. This block uses Obsidian's own variable names, so Obsidian snippets port over unchanged (Obsidian scopes the palette under `.theme-light` / `.theme-dark`; here `prefers-color-scheme` picks the palette):
-
-```css
-:root {
-  /* Obsidian's color palette */
-  --color-red: #e93147;
-  --color-orange: #ec7500;
-  --color-yellow: #e0ac00;
-  --color-green: #08b94e;
-  --color-blue: #086ddd;
-  --color-purple: #7852ee;
-
-  /* Highlights */
-  --highlight-opacity: 30%;
-  --highlight-background: var(
-    --text-highlight-bg,
-    var(--highlight-background-yellow)
-  );
-  --highlight-background-red: color-mix(
-    in oklch,
-    var(--color-red) var(--highlight-opacity),
-    transparent
-  );
-  --highlight-background-orange: color-mix(
-    in oklch,
-    var(--color-orange) var(--highlight-opacity),
-    transparent
-  );
-  --highlight-background-yellow: color-mix(
-    in oklch,
-    var(--color-yellow) var(--highlight-opacity),
-    transparent
-  );
-  --highlight-background-green: color-mix(
-    in oklch,
-    var(--color-green) var(--highlight-opacity),
-    transparent
-  );
-  --highlight-background-blue: color-mix(
-    in oklch,
-    var(--color-blue) var(--highlight-opacity),
-    transparent
-  );
-  --highlight-background-purple: color-mix(
-    in oklch,
-    var(--color-purple) var(--highlight-opacity),
-    transparent
-  );
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-red: #fb464c;
-    --color-orange: #e9973f;
-    --color-yellow: #e0de71;
-    --color-green: #44cf6e;
-    --color-blue: #027aff;
-    --color-purple: #a882ff;
-  }
-}
-
-mark {
-  background-color: var(--highlight-background);
-  color: var(--text-normal, inherit);
-}
-
-mark .internal-link {
-  color: var(--text-normal, inherit);
-}
-
-mark[data-highlight="red"] {
-  --highlight-background: var(--highlight-background-red);
-}
-mark[data-highlight="orange"] {
-  --highlight-background: var(--highlight-background-orange);
-}
-mark[data-highlight="yellow"] {
-  --highlight-background: var(--highlight-background-yellow);
-}
-mark[data-highlight="green"] {
-  --highlight-background: var(--highlight-background-green);
-}
-mark[data-highlight="blue"] {
-  --highlight-background: var(--highlight-background-blue);
-}
-mark[data-highlight="purple"] {
-  --highlight-background: var(--highlight-background-purple);
-}
-```
+Highlight Colors are painted by the opt-in [Stylesheet](#styling); without it, target `mark[data-highlight="…"]` yourself.
 
 ### Callouts
 
-Callouts reproduce Obsidian's reading-view DOM: `> [!note]` becomes `div.callout[data-callout]`; foldable callouts (`> [!faq]-` / `+`) become `details.callout.is-collapsible[open]`. Aliases (`[!hint]`) map to canonical types (`tip`); unknown types fall back to `note`. The 13 canonical types ship built in; register custom types via `callouts.types`. Icons are `.callout-title-icon[data-icon]` — CSS decides the glyph, no inline SVGs.
+Callouts reproduce Obsidian's reading-view DOM: `> [!note]` becomes `div.callout[data-callout]`; foldable callouts (`> [!faq]-` / `+`) become `details.callout.is-collapsible[open]`. Aliases (`[!hint]`) map to canonical types (`tip`); unknown types fall back to `note`. The 13 canonical types ship built in; register custom types via `callouts.types`. Icons are `.callout-title-icon[data-icon]` — the [Stylesheet](#styling) draws the glyph, no inline SVGs.
 
 ### Comments
 
@@ -316,6 +229,69 @@ A trailing `^id` (charset `[A-Za-z0-9-]`, preceded by whitespace) is stripped fr
 ### Inline Footnotes
 
 `^[text]` renders as `<sup>text</sup>` with no footnote section — a deliberate divergence from Obsidian (no definitions, no numbering). Its content is parsed as inline Markdown with the Note's own syntax: `^[[[Note|Alias]]]` publishes as `<sup><a href="…">Alias</a></sup>`, and bold, italic, code, Highlights and Comments work inside it too. The content ends at the `]` that matches its opening `[`, stays on one line, an unclosed Footnote stays literal text, a Footnote never nests inside another one, and an Embed inside a Footnote stays literal.
+
+## Styling
+
+The plugin emits Obsidian's reading-view DOM and never injects CSS. To get the Obsidian look for Callouts, Highlights and unresolved links, opt in to the **Stylesheet**.
+
+```ts
+import "remark-obsidian-md/styles.css"; // base + dark via prefers-color-scheme
+```
+
+Put the `markdown-rendered` class on the **Rendered Container**, the element that holds a Note's content. Every rule is scoped to it:
+
+```html
+<article class="markdown-rendered">…rendered Note…</article>
+```
+
+### Dark mode
+
+Pick one import (do not combine them):
+
+```ts
+import "remark-obsidian-md/styles.css"; // 1. follows prefers-color-scheme (default)
+
+import "remark-obsidian-md/styles/base.css"; // 2. class-based dark theme
+import "remark-obsidian-md/styles/dark-class.css"; // dark under .dark, .theme-dark or [data-theme="dark"] on the container or an ancestor
+
+import "remark-obsidian-md/styles/base.css"; // 3. light only: base alone
+```
+
+### Tokens
+
+Colors read Obsidian's variable names, so an Obsidian snippet or your own theme can set them on the container or any ancestor. Each has a fallback when unset.
+
+| Token | Fallback | Used for |
+| --- | --- | --- |
+| `--color-red`, `-orange`, `-yellow`, `-green`, `-blue`, `-purple` | `#e93147`, `#ec7500`, `#e0ac00`, `#08b94e`, `#086ddd`, `#7852ee` | Highlight Colors |
+| `--color-{red,orange,yellow,green,blue,purple,cyan}-rgb` | per Callout Type (an `r, g, b` triplet) | Callout colors |
+| `--color-base-60-rgb` | `158, 158, 158` | `quote` / `cite` Callouts |
+| `--text-highlight-bg` | yellow at `--highlight-opacity` | plain `==Highlight==` background |
+| `--highlight-opacity` | `30%` | Highlight Color strength |
+| `--text-normal` | `inherit` | Highlight and Callout text |
+| `--text-muted` | 60% of `currentColor` | unresolved links and Embeds |
+| `--callout-default` | blue | color of an unlisted Callout Type |
+
+The dark imports override the `--color-*` and `--color-*-rgb` tokens with Obsidian's dark palette.
+
+### Custom Callout Types
+
+Each built-in Callout Type has its Obsidian color and Lucide icon. For a custom type, set the extension points on its Callout:
+
+```css
+.callout[data-callout="recipe"] {
+  --callout-color: 233, 151, 63; /* r, g, b triplet */
+}
+.callout-title-icon[data-icon="chef-hat"] {
+  --callout-icon: url("/icons/chef-hat.svg"); /* mask image */
+}
+```
+
+Unknown Callout Types render as `note`; an unknown `data-icon` draws no icon. Fold markers on foldable Callouts are drawn by the Stylesheet and need no JavaScript.
+
+### Overriding
+
+Every Stylesheet selector sits inside `:where()`, so its specificity is zero. Any rule you write wins by source order alone, with no `!important` and no Tailwind or other build step. Setting tokens on the container (or an ancestor) restyles everything at once.
 
 ## Deliberately unsupported
 
