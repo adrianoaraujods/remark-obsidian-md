@@ -1,6 +1,6 @@
 # Callouts emit Obsidian's reading-view DOM
 
-Callouts reproduce Obsidian's DOM exactly: `div.callout[data-callout]` for non-foldable callouts and `details.callout.is-collapsible[open?]` for foldable ones, with `.callout-title`, `.callout-title-inner` and `.callout-content`. Icons are emitted as `.callout-title-icon[data-icon]` instead of inline Lucide SVGs, leaving the glyph itself to the theme.
+Callouts reproduce Obsidian's DOM exactly: `div.callout[data-callout]` for non-foldable callouts and `details.callout.is-collapsible[open?]` for foldable ones, with `.callout-title`, `.callout-title-inner` and `.callout-content`. Icons are emitted as `.callout-title-icon[data-icon]` instead of inline Lucide SVGs, leaving the glyph itself to CSS.
 
 ## Considered options
 
@@ -9,4 +9,4 @@ Callouts reproduce Obsidian's DOM exactly: `div.callout[data-callout]` for non-f
 
 ## Consequences
 
-Existing Obsidian themes and CSS snippets apply to rendered callouts; the icon glyph is a theme responsibility.
+Existing Obsidian themes and CSS snippets apply to rendered callouts; the opt-in Stylesheet ([ADR 0008](./0008-opt-in-class-scoped-stylesheet.md)) draws the icon glyph with Lucide masks keyed on `data-icon`, and a theme or consumer can override it through `--callout-icon`.
