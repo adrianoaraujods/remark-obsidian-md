@@ -134,7 +134,7 @@ export function highlightFromMarkdown(
  * Obsidian 1.14's Highlight Colors: the twelve emoji it accepts, mapped to
  * the six Highlight Colors its reading view emits.
  */
-const HIGHLIGHT_COLORS: Record<string, string> = {
+export const HIGHLIGHT_COLORS: Record<string, string> = {
   "🔴": "red",
   "🟥": "red",
   "🟠": "orange",

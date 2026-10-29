@@ -1,0 +1,90 @@
+/*
+ * remark-obsidian-md Stylesheet: base.
+ *
+ * Every rule is scoped under the Rendered Container, `.markdown-rendered`,
+ * through :where() so it adds no specificity. Colors read Obsidian's own
+ * tokens and fall back to the inherited text color when a token is unset.
+ */
+
+/* Highlights */
+:where(.markdown-rendered) mark {
+  padding: 0 0.15em;
+  border-radius: 0.2em;
+  background-color: var(
+    --text-highlight-bg,
+    color-mix(
+      in oklch,
+      var(--color-yellow, #e0ac00) var(--highlight-opacity, 30%),
+      transparent
+    )
+  );
+  color: var(--text-normal, inherit);
+}
+
+/* Keeps a highlighted Wiki Link readable. */
+:where(.markdown-rendered) mark a {
+  color: var(--text-normal, inherit);
+}
+
+:where(.markdown-rendered) mark[data-highlight="red"] {
+  background-color: color-mix(
+    in oklch,
+    var(--color-red, #e93147) var(--highlight-opacity, 30%),
+    transparent
+  );
+}
+
+:where(.markdown-rendered) mark[data-highlight="orange"] {
+  background-color: color-mix(
+    in oklch,
+    var(--color-orange, #ec7500) var(--highlight-opacity, 30%),
+    transparent
+  );
+}
+
+:where(.markdown-rendered) mark[data-highlight="yellow"] {
+  background-color: color-mix(
+    in oklch,
+    var(--color-yellow, #e0ac00) var(--highlight-opacity, 30%),
+    transparent
+  );
+}
+
+:where(.markdown-rendered) mark[data-highlight="green"] {
+  background-color: color-mix(
+    in oklch,
+    var(--color-green, #08b94e) var(--highlight-opacity, 30%),
+    transparent
+  );
+}
+
+:where(.markdown-rendered) mark[data-highlight="blue"] {
+  background-color: color-mix(
+    in oklch,
+    var(--color-blue, #086ddd) var(--highlight-opacity, 30%),
+    transparent
+  );
+}
+
+:where(.markdown-rendered) mark[data-highlight="purple"] {
+  background-color: color-mix(
+    in oklch,
+    var(--color-purple, #7852ee) var(--highlight-opacity, 30%),
+    transparent
+  );
+}
+
+/* Unresolved Wiki Links */
+:where(.markdown-rendered) a.is-unresolved {
+  color: var(--text-muted, color-mix(in srgb, currentColor 60%, transparent));
+  text-decoration: underline dotted;
+}
+
+/*
+ * Embeds: resolved Embeds stay unstyled so transcluded content reads as part
+ * of the page. Only unresolved and over-limit Embeds are quietly muted.
+ */
+:where(.markdown-rendered) .internal-embed.is-unresolved,
+:where(.markdown-rendered) .internal-embed.is-embed-limit {
+  color: var(--text-muted, color-mix(in srgb, currentColor 60%, transparent));
+}
