@@ -54,6 +54,9 @@ importers:
       husky:
         specifier: ^9.1.7
         version: 9.1.7
+      lucide-static:
+        specifier: 1.63.0
+        version: 1.63.0
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1(supports-color@7.2.0)
@@ -746,6 +749,9 @@ packages:
 
   longest-streak@3.1.0:
     resolution: {integrity: sha512-9Ri+o0JYgehTaVBBDoMqIl8GXtbWg711O3srftcHhZ0dqnETqLaoIK0x17fUw9rFSlK/0NlsKe0Ahhyl5pXE2g==}
+
+  lucide-static@1.63.0:
+    resolution: {integrity: sha512-rTBVdPw3vlBsjxfdqm5Tvaa0jI8TMlVAeGefHRIvzUBnEyUE866zSZN34FwpJkXiGN8ER+sy1JCB0XOBEe/QgA==}
 
   magic-string@1.4.3:
     resolution: {integrity: sha512-z12OxmaPGE0F4xlpGdjuAUckipLpQlTAuAmyGhNoD7ODpYUzvDfvtxUbjM/jwznyP178oju/KDdyi220wNJ0RQ==}
@@ -1676,6 +1682,8 @@ snapshots:
   lines-and-columns@1.2.4: {}
 
   longest-streak@3.1.0: {}
+
+  lucide-static@1.63.0: {}
 
   magic-string@1.4.3:
     dependencies:
