@@ -1,15 +1,13 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { extname, join, relative, sep } from "node:path";
 
-import { load } from "js-yaml";
-
 import type {
   FilesystemResolver,
   NoteMetadata,
   ResolvedTarget,
   Resolver,
 } from "./types.js";
-import { isPlainObject, normalizePath } from "./utils.js";
+import { normalizePath, splitFrontmatter } from "./utils.js";
 
 /**
  * How to pick a winner when several Notes share a basename or Alias.
@@ -146,18 +144,7 @@ function readNote(file: string, filename: string): NoteMetadata {
 }
 
 function readFrontmatter(file: string): Record<string, unknown> {
-  const source = readFileSync(file, "utf8");
-  const match = /^(?:\uFEFF)?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(
-    source,
-  );
-  if (!match?.[1]) return {};
-
-  try {
-    const data: unknown = load(match[1]);
-    return isPlainObject(data) ? data : {};
-  } catch {
-    return {};
-  }
+  return splitFrontmatter(readFileSync(file, "utf8")).frontmatter;
 }
 
 function toStringArray(value: unknown): string[] {
