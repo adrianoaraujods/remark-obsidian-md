@@ -31,7 +31,9 @@
   "exports": {
     ".": "./dist/index.js",
     "./styles.css": "./dist/styles.css",
-    "./styles/base.css": "./dist/styles/base.css"
+    "./styles/base.css": "./dist/styles/base.css",
+    "./styles/dark-media.css": "./dist/styles/dark-media.css",
+    "./styles/dark-class.css": "./dist/styles/dark-class.css"
   },
   "scripts": {
     "generate:icons": "node scripts/generate-icons.mjs",

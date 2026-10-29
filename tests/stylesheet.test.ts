@@ -78,7 +78,12 @@ describe("Stylesheet package boundary", () => {
   }, 120_000);
 
   it("resolves both CSS entry points through package exports to built files", () => {
-    for (const subpath of ["./styles.css", "./styles/base.css"]) {
+    for (const subpath of [
+      "./styles.css",
+      "./styles/base.css",
+      "./styles/dark-media.css",
+      "./styles/dark-class.css",
+    ]) {
       expect(existsSync(resolveExport(subpath)), subpath).toBe(true);
     }
   });
@@ -153,5 +158,59 @@ describe("Stylesheet package boundary", () => {
     expect(readFileSync(resolve(root, "LICENSE-LUCIDE"), "utf8")).toContain(
       "ISC License",
     );
+  });
+
+  describe("dark mode", () => {
+    const base = () => readCss(resolveExport("./styles/base.css"));
+    const media = () => readCss(resolveExport("./styles/dark-media.css"));
+    const klass = () => readCss(resolveExport("./styles/dark-class.css"));
+    const tokens = [
+      "--color-red",
+      "--color-orange",
+      "--color-yellow",
+      "--color-green",
+      "--color-blue",
+      "--color-purple",
+      "--color-cyan",
+      "--color-red-rgb",
+      "--color-blue-rgb",
+      "--color-purple-rgb",
+    ];
+
+    it("keys the media file on prefers-color-scheme", () => {
+      expect(media()).toContain("prefers-color-scheme: dark");
+    });
+
+    it("keys the class file on all three dark selectors, not the media query", () => {
+      const css = klass();
+      for (const selector of [".dark", ".theme-dark", '[data-theme="dark"]']) {
+        expect(css, selector).toContain(selector);
+      }
+      expect(css).not.toContain("prefers-color-scheme");
+    });
+
+    it("matches an ancestor of the Rendered Container or the container itself", () => {
+      const css = klass();
+      expect(css).toContain(".dark .markdown-rendered");
+      expect(css).toContain(".dark.markdown-rendered");
+    });
+
+    it("defines the same palette in both files", () => {
+      for (const token of tokens) {
+        expect(media(), token).toContain(`${token}:`);
+        expect(klass(), token).toContain(`${token}:`);
+      }
+    });
+
+    it("keeps the base free of dark palettes", () => {
+      expect(base()).not.toContain("prefers-color-scheme");
+      expect(base()).not.toContain("dark");
+    });
+
+    it("makes the default bundle the base plus the media file", () => {
+      const css = readCss(resolveExport("./styles.css"));
+      expect(css).toContain(base());
+      expect(css).toContain("prefers-color-scheme: dark");
+    });
   });
 });
