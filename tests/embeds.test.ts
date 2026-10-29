@@ -14,6 +14,11 @@ import type {
   Resolver,
 } from "../src/types.js";
 
+/** A Note with a Frontmatter block and a body. */
+function withFrontmatter(frontmatter: string, body: string): string {
+  return `---\n${frontmatter}\n---\n\n${body}`;
+}
+
 const notes: Record<string, string> = {
   "/A.md": "Alpha content",
   "/B.md": "Bravo content",
@@ -69,6 +74,46 @@ const notes: Record<string, string> = {
     "==🔴section==",
   ].join("\n"),
   "/Plain.md": "Plain content",
+  "/With Frontmatter.md": withFrontmatter(
+    "title: Hidden title\ncssclasses: [wide, red]",
+    "Frontmatter body",
+  ),
+  "/Frontmatter Sections.md": withFrontmatter(
+    "title: Hidden title",
+    "# Alpha\n\nAlpha body",
+  ),
+  "/Frontmatter Blocks.md": withFrontmatter(
+    "title: Hidden title",
+    "Referenced paragraph ^target",
+  ),
+  "/Frontmatter Nested.md": withFrontmatter(
+    "title: Hidden title",
+    "Nested body ![[Frontmatter Inner]]",
+  ),
+  "/Frontmatter Inner.md": withFrontmatter(
+    "title: Hidden inner title",
+    "Inner body",
+  ),
+  "/Frontmatter Deep.md": withFrontmatter(
+    "title: Hidden deep title",
+    "Deep body ![[Frontmatter Nested]]",
+  ),
+  "/Frontmatter Mixed.md": withFrontmatter(
+    "title: Hidden mixed title",
+    "Mixed ![[Frontmatter Inner]] and ![[Frontmatter Sections#Alpha]]",
+  ),
+  "/Frontmatter CRLF.md":
+    "---\r\ntitle: Hidden title\r\ntags: [one]\r\n---\r\n\r\nCRLF body",
+  "/BOM Frontmatter.md": "﻿---\ntitle: Hidden title\n---\n\nBOM body",
+  "/Invalid YAML.md": "---\ntitle: [unclosed\n---\n\nInvalid body",
+  "/No Closing Fence.md": "---\ntitle: Hidden title\n\nNo fence body",
+  "/Sequence YAML.md": "---\n- one\n- two\n---\n\nSequence body",
+  "/Prose YAML.md": "---\njust prose\n---\n\nProse body",
+  "/Empty Frontmatter.md": "---\n---\n\nEmpty body",
+  "/Nested Frontmatter.md": withFrontmatter(
+    "title: Nested title\ntags:\n  - one\n  - two\nmeta:\n  key: value",
+    "Nested frontmatter body",
+  ),
 };
 
 const resolver = mapResolver({
@@ -93,6 +138,24 @@ const resolver = mapResolver({
   "Highlighted Elements": { path: "/Highlighted Elements.md" },
   "Highlighted Sections": { path: "/Highlighted Sections.md" },
   Plain: { path: "/Plain.md" },
+  "With Frontmatter": {
+    path: "/With Frontmatter.md",
+    cssclasses: ["wide", "red"],
+  },
+  "Frontmatter Sections": { path: "/Frontmatter Sections.md" },
+  "Frontmatter Blocks": { path: "/Frontmatter Blocks.md" },
+  "Frontmatter Nested": { path: "/Frontmatter Nested.md" },
+  "Frontmatter Inner": { path: "/Frontmatter Inner.md" },
+  "Frontmatter Deep": { path: "/Frontmatter Deep.md" },
+  "Frontmatter Mixed": { path: "/Frontmatter Mixed.md" },
+  "Frontmatter CRLF": { path: "/Frontmatter CRLF.md" },
+  "BOM Frontmatter": { path: "/BOM Frontmatter.md" },
+  "Invalid YAML": { path: "/Invalid YAML.md" },
+  "No Closing Fence": { path: "/No Closing Fence.md" },
+  "Sequence YAML": { path: "/Sequence YAML.md" },
+  "Prose YAML": { path: "/Prose YAML.md" },
+  "Empty Frontmatter": { path: "/Empty Frontmatter.md" },
+  "Nested Frontmatter": { path: "/Nested Frontmatter.md" },
 });
 
 function readNote(path: string): string | undefined {
@@ -105,7 +168,11 @@ function process(
 ): Root {
   const processor = unified()
     .use(remarkParse)
-    .use(remarkObsidianMd, { resolver, embeds: { readNote }, ...options });
+    .use(remarkObsidianMd, {
+      resolver,
+      ...options,
+      embeds: { readNote, ...options.embeds },
+    });
 
   return processor.runSync(processor.parse(markdown));
 }
@@ -406,6 +473,272 @@ describe("partial Embeds", () => {
   });
 });
 
+describe("Frontmatter in Embeds", () => {
+  it("hides the Frontmatter of an embedded Note by default", () => {
+    const tree = process("![[With Frontmatter]]");
+    const json = JSON.stringify(tree);
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Frontmatter body" }],
+        },
+      ],
+    });
+    expect(json).not.toContain("Hidden title");
+    expect(json).not.toContain("cssclasses");
+  });
+
+  it("keeps the embedded Note's CSS Classes on the container", () => {
+    const tree = process("![[With Frontmatter]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      data: {
+        hName: "div",
+        hProperties: { className: ["internal-embed", "wide", "red"] },
+      },
+    });
+  });
+
+  it("hides the Frontmatter of a section Embed", () => {
+    const tree = process("![[Frontmatter Sections#Alpha]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "heading",
+          depth: 1,
+          children: [{ type: "text", value: "Alpha" }],
+        },
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Alpha body" }],
+        },
+      ],
+    });
+    expect(JSON.stringify(tree)).not.toContain("Hidden title");
+  });
+
+  it("hides the Frontmatter of a Block ID Embed", () => {
+    const tree = process("![[Frontmatter Blocks#^target]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Referenced paragraph" }],
+        },
+      ],
+    });
+    expect(JSON.stringify(tree)).not.toContain("Hidden title");
+  });
+
+  it("hides the Frontmatter of a nested Embed", () => {
+    const tree = process("![[Frontmatter Nested]]");
+    const json = JSON.stringify(tree);
+
+    expect(json).toContain("Nested body");
+    expect(json).toContain("Inner body");
+    expect(json).not.toContain("Hidden title");
+    expect(json).not.toContain("Hidden inner title");
+  });
+
+  it("tolerates a byte-order mark before the Frontmatter", () => {
+    const tree = process("![[BOM Frontmatter]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "BOM body" }],
+        },
+      ],
+    });
+    expect(JSON.stringify(tree)).not.toContain("Hidden title");
+  });
+
+  it("leaves a block that is not Frontmatter untouched", () => {
+    const cases = [
+      { target: "Invalid YAML", content: "title: [unclosed", breaks: 1 },
+      { target: "No Closing Fence", content: "title: Hidden title", breaks: 1 },
+      { target: "Sequence YAML", content: '"value":"one"', breaks: 2 },
+      { target: "Prose YAML", content: "just prose", breaks: 1 },
+      { target: "Empty Frontmatter", content: "", breaks: 2 },
+    ];
+
+    for (const showFrontmatter of [false, true]) {
+      for (const { target, content, breaks } of cases) {
+        const json = JSON.stringify(
+          process(`![[${target}]]`, { embeds: { showFrontmatter } }),
+        );
+
+        expect(json.match(/"type":"thematicBreak"/g)).toHaveLength(breaks);
+        expect(json).not.toContain('"type":"code"');
+        if (content) expect(json).toContain(content);
+      }
+    }
+  });
+});
+
+describe("showing Frontmatter in Embeds", () => {
+  it("renders the Frontmatter of a whole-Note Embed as a YAML code block", () => {
+    const tree = process("![[With Frontmatter]]", {
+      embeds: { showFrontmatter: true },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "code",
+          lang: "yaml",
+          value: "title: Hidden title\ncssclasses: [wide, red]",
+        },
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Frontmatter body" }],
+        },
+      ],
+    });
+  });
+
+  it("keeps nested values and lists in the YAML code block intact", () => {
+    const tree = process("![[Nested Frontmatter]]", {
+      embeds: { showFrontmatter: true },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "code",
+          lang: "yaml",
+          value: [
+            "title: Nested title",
+            "tags:",
+            "  - one",
+            "  - two",
+            "meta:",
+            "  key: value",
+          ].join("\n"),
+        },
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Nested frontmatter body" }],
+        },
+      ],
+    });
+  });
+
+  it("shows the Frontmatter of a nested whole-Note Embed too", () => {
+    const tree = process("![[Frontmatter Nested]]", {
+      embeds: { showFrontmatter: true },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        { type: "code", lang: "yaml", value: "title: Hidden title" },
+        { type: "paragraph" },
+        {
+          type: "embed",
+          children: [
+            { type: "code", lang: "yaml", value: "title: Hidden inner title" },
+            { type: "paragraph" },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("shows the Frontmatter at any nesting depth", () => {
+    const tree = process("![[Frontmatter Deep]]", {
+      embeds: { showFrontmatter: true },
+    });
+    const json = JSON.stringify(tree);
+
+    expect(json).toContain("title: Hidden deep title");
+    expect(json).toContain("title: Hidden title");
+    expect(json).toContain("title: Hidden inner title");
+  });
+
+  it("never shows the Frontmatter of a nested section Embed", () => {
+    const tree = process("![[Frontmatter Mixed]]", {
+      embeds: { showFrontmatter: true },
+    });
+    const json = JSON.stringify(tree);
+
+    expect(json).toContain("title: Hidden mixed title");
+    expect(json).toContain("title: Hidden inner title");
+    expect(json).not.toContain("title: Hidden title");
+  });
+
+  it("normalizes CRLF line endings in the YAML code block", () => {
+    const tree = process("![[Frontmatter CRLF]]", {
+      embeds: { showFrontmatter: true },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "code",
+          lang: "yaml",
+          value: "title: Hidden title\ntags: [one]",
+        },
+        { type: "paragraph" },
+      ],
+    });
+  });
+
+  it("strips the Frontmatter of a section Embed even with the option on", () => {
+    const tree = process("![[Frontmatter Sections#Alpha]]", {
+      embeds: { showFrontmatter: true },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "heading",
+          depth: 1,
+          children: [{ type: "text", value: "Alpha" }],
+        },
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Alpha body" }],
+        },
+      ],
+    });
+    expect(JSON.stringify(tree)).not.toContain('"type":"code"');
+    expect(JSON.stringify(tree)).not.toContain("Hidden title");
+  });
+
+  it("strips the Frontmatter of a Block ID Embed even with the option on", () => {
+    const tree = process("![[Frontmatter Blocks#^target]]", {
+      embeds: { showFrontmatter: true },
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Referenced paragraph" }],
+        },
+      ],
+    });
+    expect(JSON.stringify(tree)).not.toContain('"type":"code"');
+    expect(JSON.stringify(tree)).not.toContain("Hidden title");
+  });
+});
+
 function processEmbed(
   markdown: string,
   options: Omit<EmbedsPluginOptions, "resolver" | "readNote"> = {},
@@ -425,6 +758,24 @@ describe("remarkObsidianEmbeds (standalone)", () => {
       type: "embed",
       data: { hName: "div" },
       children: [{ type: "paragraph" }],
+    });
+  });
+
+  it("shows the Frontmatter through the per-feature plugin", () => {
+    const tree = processEmbed("![[With Frontmatter]]", {
+      showFrontmatter: true,
+    });
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "code",
+          lang: "yaml",
+          value: "title: Hidden title\ncssclasses: [wide, red]",
+        },
+        { type: "paragraph" },
+      ],
     });
   });
 });

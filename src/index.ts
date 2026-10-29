@@ -34,6 +34,7 @@ export function remarkObsidianMd(
   const embeds = configureEmbeds(this, {
     readNote: options.embeds?.readNote,
     maxDepth: options.embeds?.maxDepth,
+    showFrontmatter: options.embeds?.showFrontmatter,
     wikiLinks,
   });
 

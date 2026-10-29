@@ -25,6 +25,7 @@ import { SKIP, visit } from "unist-util-visit";
 import { type BlockIndex, processBlockIds } from "./block-id.js";
 import { addExtension } from "./extensions.js";
 import { transformHighlights } from "./highlights.js";
+import { splitFrontmatter } from "./note-frontmatter.js";
 import type {
   EmbedNode,
   EmbedsOptions,
@@ -119,6 +120,7 @@ export type EmbedContext = {
   wikiLinks: WikiLinkContext;
   readNote: (path: string) => string | undefined;
   maxDepth: number;
+  showFrontmatter: boolean;
 };
 
 type EmbedState = {
@@ -355,7 +357,12 @@ function parseEmbedded(
   data.micromarkExtensions = micromarkExtensions;
   data.fromMarkdownExtensions = fromMarkdownExtensions;
 
-  const tree = processor.runSync(processor.parse(markdown)) as Root;
+  // The embedded Note's Frontmatter is hidden by default: it is stripped
+  // before the source is parsed, so whole-Note, section, Block ID and nested
+  // Embeds are all clean. With `showFrontmatter` on, a whole-Note Embed puts
+  // it back as a YAML code block.
+  const { body, yamlSource } = splitFrontmatter(markdown);
+  const tree = processor.runSync(processor.parse(body)) as Root;
 
   if (parsed.subpath) {
     const blockIds = processBlockIds(tree);
@@ -367,6 +374,11 @@ function parseEmbedded(
     if (!selected) return undefined;
 
     tree.children = selected;
+  } else if (context.showFrontmatter && yamlSource) {
+    // A whole-Note Embed shows its Frontmatter as a YAML code block,
+    // holding the YAML source as written (line endings normalized to LF),
+    // ahead of the Note's body.
+    tree.children.unshift({ type: "code", lang: "yaml", value: yamlSource });
   }
 
   transformWikiLinks(tree, context.wikiLinks);
@@ -555,6 +567,7 @@ export function configureEmbeds(
     wikiLinks: options.wikiLinks,
     readNote: options.readNote ?? (() => undefined),
     maxDepth: options.maxDepth ?? 4,
+    showFrontmatter: options.showFrontmatter ?? false,
   };
 }
 

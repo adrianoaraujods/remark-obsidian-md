@@ -51,6 +51,8 @@ export type EmbedsOptions = {
   readNote?: ((path: string) => string | undefined) | undefined;
   /** Maximum nesting depth; defaults to 4. */
   maxDepth?: number | undefined;
+  /** Renders an embedded Note's Frontmatter as a YAML code block; defaults to false. */
+  showFrontmatter?: boolean | undefined;
 };
 
 export type RemarkObsidianMdOptions = UrlOptions & {
