@@ -6,6 +6,7 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
 import { beforeAll, describe, expect, it } from "vitest";
+import { CALLOUT_ALIASES, CALLOUT_TYPES } from "../src/callouts.js";
 import { HIGHLIGHT_COLORS } from "../src/highlights.js";
 import remarkObsidianMd, { mapResolver } from "../src/index.js";
 
@@ -56,9 +57,13 @@ function collectHooks(markdown: string): Set<string> {
     const props = data.hProperties ?? {};
     const color = props["data-highlight"];
     if (typeof color === "string") hooks.add(`[data-highlight="${color}"]`);
+    const type = props["data-callout"];
+    if (typeof type === "string") hooks.add(`[data-callout="${type}"]`);
     for (const name of [props.className ?? []].flat() as string[]) {
       // Resolved Embeds stay unstyled; only state classes need a rule.
-      if (name.startsWith("is-")) hooks.add(`.${name}`);
+      if (name.startsWith("is-") || name.startsWith("callout")) {
+        hooks.add(`.${name}`);
+      }
     }
   });
 
@@ -97,6 +102,44 @@ describe("Stylesheet package boundary", () => {
     }
     for (const hook of hooks) {
       expect(css, `no rule for ${hook}`).toContain(hook);
+    }
+  });
+
+  it("styles every Callout Type, alias and Callout part the plugin emits", () => {
+    const types = [
+      ...Object.keys(CALLOUT_TYPES),
+      ...Object.keys(CALLOUT_ALIASES),
+    ];
+    const markdown = [
+      ...types.map((type) => `> [!${type}] Title\n> body`),
+      "> [!note]- Folded\n> body",
+      "> [!note]+ Open\n> body",
+      "> [!unknown-type] Typo\n> body",
+    ].join("\n\n");
+
+    const hooks = collectHooks(markdown);
+    const css = readCss(resolveExport("./styles.css"));
+
+    for (const hook of [
+      ".callout",
+      ".callout-title",
+      ".callout-title-inner",
+      ".callout-title-icon",
+      ".callout-content",
+      ".is-collapsible",
+    ]) {
+      expect(hooks, hook).toContain(hook);
+    }
+    for (const type of Object.keys(CALLOUT_TYPES)) {
+      expect(hooks).toContain(`[data-callout="${type}"]`);
+    }
+    for (const hook of hooks) {
+      expect(css, `no rule for ${hook}`).toContain(hook);
+    }
+    for (const alias of Object.keys(CALLOUT_ALIASES)) {
+      expect(css, `no rule for alias ${alias}`).toContain(
+        `[data-callout="${alias}"]`,
+      );
     }
   });
 });
