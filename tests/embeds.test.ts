@@ -69,6 +69,50 @@ const notes: Record<string, string> = {
     "==🔴section==",
   ].join("\n"),
   "/Plain.md": "Plain content",
+  "/With Frontmatter.md": [
+    "---",
+    "title: Hidden title",
+    "cssclasses: [wide, red]",
+    "---",
+    "",
+    "Frontmatter body",
+  ].join("\n"),
+  "/Frontmatter Sections.md": [
+    "---",
+    "title: Hidden title",
+    "---",
+    "",
+    "# Alpha",
+    "",
+    "Alpha body",
+  ].join("\n"),
+  "/Frontmatter Blocks.md": [
+    "---",
+    "title: Hidden title",
+    "---",
+    "",
+    "Referenced paragraph ^target",
+  ].join("\n"),
+  "/Frontmatter Nested.md": [
+    "---",
+    "title: Hidden title",
+    "---",
+    "",
+    "Nested body ![[Frontmatter Inner]]",
+  ].join("\n"),
+  "/Frontmatter Inner.md": [
+    "---",
+    "title: Hidden inner title",
+    "---",
+    "",
+    "Inner body",
+  ].join("\n"),
+  "/BOM Frontmatter.md": "﻿---\ntitle: Hidden title\n---\n\nBOM body",
+  "/Invalid YAML.md": "---\ntitle: [unclosed\n---\n\nInvalid body",
+  "/No Closing Fence.md": "---\ntitle: Hidden title\n\nNo fence body",
+  "/Sequence YAML.md": "---\n- one\n- two\n---\n\nSequence body",
+  "/Prose YAML.md": "---\njust prose\n---\n\nProse body",
+  "/Empty Frontmatter.md": "---\n---\n\nEmpty body",
 };
 
 const resolver = mapResolver({
@@ -93,6 +137,20 @@ const resolver = mapResolver({
   "Highlighted Elements": { path: "/Highlighted Elements.md" },
   "Highlighted Sections": { path: "/Highlighted Sections.md" },
   Plain: { path: "/Plain.md" },
+  "With Frontmatter": {
+    path: "/With Frontmatter.md",
+    cssclasses: ["wide", "red"],
+  },
+  "Frontmatter Sections": { path: "/Frontmatter Sections.md" },
+  "Frontmatter Blocks": { path: "/Frontmatter Blocks.md" },
+  "Frontmatter Nested": { path: "/Frontmatter Nested.md" },
+  "Frontmatter Inner": { path: "/Frontmatter Inner.md" },
+  "BOM Frontmatter": { path: "/BOM Frontmatter.md" },
+  "Invalid YAML": { path: "/Invalid YAML.md" },
+  "No Closing Fence": { path: "/No Closing Fence.md" },
+  "Sequence YAML": { path: "/Sequence YAML.md" },
+  "Prose YAML": { path: "/Prose YAML.md" },
+  "Empty Frontmatter": { path: "/Empty Frontmatter.md" },
 });
 
 function readNote(path: string): string | undefined {
@@ -403,6 +461,114 @@ describe("partial Embeds", () => {
         },
       ],
     });
+  });
+});
+
+describe("Frontmatter in Embeds", () => {
+  it("hides the Frontmatter of an embedded Note by default", () => {
+    const tree = process("![[With Frontmatter]]");
+    const json = JSON.stringify(tree);
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Frontmatter body" }],
+        },
+      ],
+    });
+    expect(json).not.toContain("Hidden title");
+    expect(json).not.toContain("cssclasses");
+  });
+
+  it("keeps the embedded Note's CSS Classes on the container", () => {
+    const tree = process("![[With Frontmatter]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      data: {
+        hName: "div",
+        hProperties: { className: ["internal-embed", "wide", "red"] },
+      },
+    });
+  });
+
+  it("hides the Frontmatter of a section Embed", () => {
+    const tree = process("![[Frontmatter Sections#Alpha]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "heading",
+          depth: 1,
+          children: [{ type: "text", value: "Alpha" }],
+        },
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Alpha body" }],
+        },
+      ],
+    });
+    expect(JSON.stringify(tree)).not.toContain("Hidden title");
+  });
+
+  it("hides the Frontmatter of a Block ID Embed", () => {
+    const tree = process("![[Frontmatter Blocks#^target]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Referenced paragraph" }],
+        },
+      ],
+    });
+    expect(JSON.stringify(tree)).not.toContain("Hidden title");
+  });
+
+  it("hides the Frontmatter of a nested Embed", () => {
+    const tree = process("![[Frontmatter Nested]]");
+    const json = JSON.stringify(tree);
+
+    expect(json).toContain("Nested body");
+    expect(json).toContain("Inner body");
+    expect(json).not.toContain("Hidden title");
+    expect(json).not.toContain("Hidden inner title");
+  });
+
+  it("tolerates a byte-order mark before the Frontmatter", () => {
+    const tree = process("![[BOM Frontmatter]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "BOM body" }],
+        },
+      ],
+    });
+    expect(JSON.stringify(tree)).not.toContain("Hidden title");
+  });
+
+  it("leaves a block that is not Frontmatter untouched", () => {
+    const cases = [
+      { target: "Invalid YAML", content: "title: [unclosed", breaks: 1 },
+      { target: "No Closing Fence", content: "title: Hidden title", breaks: 1 },
+      { target: "Sequence YAML", content: '"value":"one"', breaks: 2 },
+      { target: "Prose YAML", content: "just prose", breaks: 1 },
+      { target: "Empty Frontmatter", content: "", breaks: 2 },
+    ];
+
+    for (const { target, content, breaks } of cases) {
+      const json = JSON.stringify(process(`![[${target}]]`));
+
+      expect(json.match(/"type":"thematicBreak"/g)).toHaveLength(breaks);
+      if (content) expect(json).toContain(content);
+    }
   });
 });
 

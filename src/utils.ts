@@ -1,4 +1,5 @@
 import GithubSlugger from "github-slugger";
+import { load } from "js-yaml";
 import { codes } from "micromark-util-symbol";
 import type { Code } from "micromark-util-types";
 
@@ -149,6 +150,39 @@ export function isPlainObject(
   if (typeof value !== "object" || value === null) return false;
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
+}
+
+/** A Note source split into its Frontmatter and its body. */
+export type FrontmatterSplit = {
+  frontmatter: Record<string, unknown>;
+  body: string;
+};
+
+/**
+ * Splits a Note source into its Frontmatter and body.
+ *
+ * The Frontmatter is the block fenced by `---` lines at the very top of the
+ * Note (a leading byte-order mark is tolerated) whose content parses, through
+ * js-yaml, into a plain object. Anything else — no closing fence, invalid
+ * YAML, YAML that is not a mapping, an empty block — is not Frontmatter, and
+ * the source is left untouched.
+ */
+export function splitFrontmatter(source: string): FrontmatterSplit {
+  const text = source.startsWith("\uFEFF") ? source.slice(1) : source;
+  const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
+
+  if (!match) return { frontmatter: {}, body: source };
+
+  let data: unknown;
+  try {
+    data = load(match[1] ?? "");
+  } catch {
+    return { frontmatter: {}, body: source };
+  }
+
+  if (!isPlainObject(data)) return { frontmatter: {}, body: source };
+
+  return { frontmatter: data, body: text.slice(match[0].length) };
 }
 
 /** Concatenates a node's text content: its own value, or its children's. */

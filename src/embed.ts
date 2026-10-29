@@ -32,7 +32,12 @@ import type {
   ResolvedTarget,
   WikiLinkContext,
 } from "./types.js";
-import { type ParsedWikiLink, parseWikiLink, textOf } from "./utils.js";
+import {
+  type ParsedWikiLink,
+  parseWikiLink,
+  splitFrontmatter,
+  textOf,
+} from "./utils.js";
 import {
   defaultWikiLinkContext,
   transformWikiLinks,
@@ -355,7 +360,11 @@ function parseEmbedded(
   data.micromarkExtensions = micromarkExtensions;
   data.fromMarkdownExtensions = fromMarkdownExtensions;
 
-  const tree = processor.runSync(processor.parse(markdown)) as Root;
+  // The embedded Note's Frontmatter is hidden: it is stripped before the
+  // source is parsed, so whole-Note, section, Block ID and nested Embeds are
+  // all clean.
+  const { body } = splitFrontmatter(markdown);
+  const tree = processor.runSync(processor.parse(body)) as Root;
 
   if (parsed.subpath) {
     const blockIds = processBlockIds(tree);
