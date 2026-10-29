@@ -101,24 +101,27 @@ export function highlightFromMarkdown(
         const node = this.stack[this.stack.length - 1] as ObsidianHighlightNode;
         node.value = this.sliceSerialize(token);
 
+        const content = node.value.slice(2, -2);
+        const { highlightColor, length } = parseHighlightColor(content);
+
         // The Highlight and Embed tokenizers are left out: the first keeps a
         // nested `==` literal, the second keeps an Embed — a block construct
         // — literal.
-        const children = parseInlineContent(
-          node.value.slice(2, -2),
-          processor,
-          [highlightSyntax, embedSyntax],
-        );
+        const children = parseInlineContent(content.slice(length), processor, [
+          highlightSyntax,
+          embedSyntax,
+        ]);
 
         // Plain text keeps publishing as a text node; content that holds
         // elements becomes a parent carrying the parsed content.
         if (children && !isPlainText(children)) {
           node.children = children;
-          node.data = { hName: "mark", hProperties: {} };
+          node.data = highlightData(highlightColor);
 
           // Every node of the parsed content points at the Highlight's content
-          // range: the nested parse's own positions are relative to it.
-          applyContentPosition(node, contentPosition(token, 2, -2));
+          // range: the nested parse's own positions are relative to it. The
+          // Highlight Color emoji shifts the range by its own length.
+          applyContentPosition(node, contentPosition(token, 2 + length, -2));
         }
 
         this.exit(token);
@@ -127,10 +130,51 @@ export function highlightFromMarkdown(
   };
 }
 
-// Obsidian highlight colours are written as a coloured circle at the start of
-// the highlight. They are a plugin convention, not part of the core syntax.
-const COLOR_EMOJI =
-  /^(?:🔴|🟠|🟡|🟢|🔵|🟣|🟤|⚫|⚪|🟥|🟧|🟨|🟩|🟦|🟪|🟫|⬛|⬜)/u;
+/**
+ * Obsidian 1.14's Highlight Colors: the twelve emoji it accepts, mapped to
+ * the six Highlight Colors its reading view emits.
+ */
+const HIGHLIGHT_COLORS: Record<string, string> = {
+  "🔴": "red",
+  "🟥": "red",
+  "🟠": "orange",
+  "🟧": "orange",
+  "🟡": "yellow",
+  "🟨": "yellow",
+  "🟢": "green",
+  "🟩": "green",
+  "🔵": "blue",
+  "🟦": "blue",
+  "🟣": "purple",
+  "🟪": "purple",
+};
+
+/**
+ * The Highlight Color at the start of a Highlight's content: Obsidian
+ * inspects the first code point only, and an emoji outside the map names no
+ * Highlight Color. The length is the emoji's own, so the content range shifts
+ * with it.
+ */
+function parseHighlightColor(content: string): {
+  highlightColor?: string;
+  length: number;
+} {
+  const codePoint = content.codePointAt(0);
+  const emoji = codePoint === undefined ? "" : String.fromCodePoint(codePoint);
+  const highlightColor = HIGHLIGHT_COLORS[emoji];
+
+  return highlightColor
+    ? { highlightColor, length: emoji.length }
+    : { length: 0 };
+}
+
+/** The data a Highlight carries: a mark element with its Highlight Color. */
+function highlightData(highlightColor: string | undefined) {
+  return {
+    hName: "mark",
+    hProperties: highlightColor ? { "data-highlight": highlightColor } : {},
+  };
+}
 
 export function configureHighlights(
   processor: Processor,
@@ -148,29 +192,24 @@ export function configureHighlights(
 /**
  * Rewrites `obsidianHighlight` nodes: a Highlight of plain text becomes a text
  * node carrying `hName: "mark"`, and a Highlight holding parsed content stays
- * a container — it already carries `hName: "mark"`.
+ * a container — it already carries `hName: "mark"`. Both carry the Highlight
+ * Color the content's first emoji names, if any.
  */
 export function transformHighlights(tree: Root): void {
   visit(tree, "obsidianHighlight", (node, index, parent) => {
     if (index === undefined || !parent) return;
 
-    const inner = node.value.slice(2, -2);
-
-    // A Highlight colour is a plugin convention, not part of the core syntax:
-    // it stays literal, even when its content holds elements.
-    if (COLOR_EMOJI.test(inner)) {
-      parent.children[index] = { type: "text", value: node.value };
-      return;
-    }
-
     // A Highlight holding parsed content is already a container; only a
     // Highlight of plain text becomes a text node.
     if ("children" in node) return;
 
+    const content = node.value.slice(2, -2);
+    const { highlightColor, length } = parseHighlightColor(content);
+
     parent.children[index] = {
       type: "text",
-      value: inner,
-      data: { hName: "mark" },
+      value: content.slice(length),
+      data: highlightData(highlightColor),
     };
   });
 }

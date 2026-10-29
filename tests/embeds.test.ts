@@ -3,7 +3,10 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { describe, expect, it } from "vitest";
 
-import remarkObsidianMd, { remarkObsidianEmbeds } from "../src/index.js";
+import remarkObsidianMd, {
+  remarkObsidianEmbeds,
+  remarkObsidianHighlights,
+} from "../src/index.js";
 import { mapResolver } from "../src/resolver.js";
 import type {
   EmbedsPluginOptions,
@@ -56,6 +59,16 @@ const notes: Record<string, string> = {
     "",
     "Other paragraph ^other",
   ].join("\n"),
+  "/Highlighted.md": "==🔴Important==",
+  "/Highlighted Elements.md": "==🔴with **bold**==",
+  "/Highlighted Sections.md": [
+    "Intro",
+    "",
+    "## Alpha",
+    "",
+    "==🔴section==",
+  ].join("\n"),
+  "/Plain.md": "Plain content",
 };
 
 const resolver = mapResolver({
@@ -76,6 +89,10 @@ const resolver = mapResolver({
   Gallery: { path: "/Gallery.md" },
   Sections: { path: "/Sections.md", cssclasses: ["wide"] },
   Blocks: { path: "/Blocks.md", cssclasses: ["wide"] },
+  Highlighted: { path: "/Highlighted.md", cssclasses: ["wide"] },
+  "Highlighted Elements": { path: "/Highlighted Elements.md" },
+  "Highlighted Sections": { path: "/Highlighted Sections.md" },
+  Plain: { path: "/Plain.md" },
 });
 
 function readNote(path: string): string | undefined {
@@ -409,6 +426,165 @@ describe("remarkObsidianEmbeds (standalone)", () => {
       data: { hName: "div" },
       children: [{ type: "paragraph" }],
     });
+  });
+});
+
+/** Highlights and Embeds composed by hand, like a user would. */
+function processHighlightsEmbeds(markdown: string): Root {
+  const processor = unified()
+    .use(remarkParse)
+    .use(remarkObsidianHighlights)
+    .use(remarkObsidianEmbeds, { resolver, readNote });
+
+  return processor.runSync(processor.parse(markdown));
+}
+
+describe("Highlight Colors in Embeds", () => {
+  it("keeps the Highlight Color of a Highlight inside an embedded Note", () => {
+    const tree = process("![[Highlighted]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [
+            {
+              type: "text",
+              value: "Important",
+              data: {
+                hName: "mark",
+                hProperties: { "data-highlight": "red" },
+              },
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("keeps the Highlight Color of a Highlight holding elements", () => {
+    const tree = process("![[Highlighted Elements]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [
+            {
+              type: "obsidianHighlight",
+              value: "==🔴with **bold**==",
+              data: {
+                hName: "mark",
+                hProperties: { "data-highlight": "red" },
+              },
+              children: [
+                { type: "text", value: "with " },
+                { type: "strong", children: [{ type: "text", value: "bold" }] },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("keeps the Highlight Color in a transcluded section", () => {
+    const tree = process("![[Highlighted Sections#Alpha]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "heading",
+          depth: 2,
+          children: [{ type: "text", value: "Alpha" }],
+        },
+        {
+          type: "paragraph",
+          children: [
+            {
+              type: "text",
+              value: "section",
+              data: {
+                hName: "mark",
+                hProperties: { "data-highlight": "red" },
+              },
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("carries the embedded Note's CSS Classes next to the Highlight Color", () => {
+    const tree = process("![[Highlighted]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      data: {
+        hName: "div",
+        hProperties: { className: ["internal-embed", "wide"] },
+      },
+    });
+  });
+
+  it("publishes a transcluded Note without Highlight Colors unchanged", () => {
+    const tree = process("![[Plain]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      data: {
+        hName: "div",
+        hProperties: { className: ["internal-embed"] },
+      },
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "Plain content" }],
+        },
+      ],
+    });
+    expect(JSON.stringify(tree)).not.toContain("data-highlight");
+  });
+
+  it("keeps the Highlight Color through the per-feature plugins", () => {
+    const tree = processHighlightsEmbeds("![[Highlighted]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [
+            {
+              type: "text",
+              value: "Important",
+              data: {
+                hName: "mark",
+                hProperties: { "data-highlight": "red" },
+              },
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("leaves a Highlight literal when the Embeds plugin stands alone", () => {
+    const tree = processEmbed("![[Highlighted]]");
+
+    expect(tree.children[0]).toMatchObject({
+      type: "embed",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "==🔴Important==" }],
+        },
+      ],
+    });
+    expect(JSON.stringify(tree)).not.toContain("data-highlight");
   });
 });
 
