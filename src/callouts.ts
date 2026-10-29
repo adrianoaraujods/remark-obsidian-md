@@ -12,7 +12,7 @@ import type {
  * The 13 canonical Callout types and the icon each one exposes to the theme.
  * Glyphs are CSS's job: only the Lucide icon name is emitted, as `data-icon`.
  */
-const CANONICAL_TYPES: Record<string, CalloutTypeDefinition> = {
+export const CALLOUT_TYPES: Record<string, CalloutTypeDefinition> = {
   note: { icon: "pencil" },
   abstract: { icon: "clipboard-list" },
   info: { icon: "info" },
@@ -28,7 +28,7 @@ const CANONICAL_TYPES: Record<string, CalloutTypeDefinition> = {
   quote: { icon: "quote" },
 };
 
-const ALIASES: Record<string, string> = {
+export const CALLOUT_ALIASES: Record<string, string> = {
   summary: "abstract",
   tldr: "abstract",
   hint: "tip",
@@ -244,13 +244,13 @@ function resolveType(
   // Custom types layer on top of the canonical defaults, so a partial
   // definition (e.g. only `color`) keeps the canonical icon.
   const merge = (type: string): CalloutTypeDefinition => ({
-    ...CANONICAL_TYPES[type],
+    ...CALLOUT_TYPES[type],
     ...custom[type],
   });
 
-  if (custom[id] || CANONICAL_TYPES[id]) return resolve(id, merge(id));
+  if (custom[id] || CALLOUT_TYPES[id]) return resolve(id, merge(id));
 
-  const alias = ALIASES[id];
+  const alias = CALLOUT_ALIASES[id];
   if (alias) return resolve(alias, merge(alias));
 
   // Unknown types render as `note`; the author's label survives as the title.

@@ -88,3 +88,142 @@
 :where(.markdown-rendered) .internal-embed.is-embed-limit {
   color: var(--text-muted, color-mix(in srgb, currentColor 60%, transparent));
 }
+
+/*
+ * Callouts. `--callout-color` is the documented extension point for custom
+ * Callout Types: set it (an `r, g, b` triplet) on `.callout[data-callout="x"]`.
+ * Unknown types render as `note`, so they get the default color.
+ */
+:where(.markdown-rendered) .callout {
+  --callout-color: var(--callout-default, var(--color-blue-rgb, 68, 138, 255));
+  margin: 1rem 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgb(var(--callout-color) / 0.3);
+  border-radius: 0.5rem;
+  background-color: rgb(var(--callout-color) / 0.1);
+  color: var(--text-normal, inherit);
+}
+
+:where(.markdown-rendered) .callout[data-callout="note"] {
+  --callout-color: var(--color-blue-rgb, 68, 138, 255);
+}
+
+:where(.markdown-rendered) .callout[data-callout="abstract"],
+:where(.markdown-rendered) .callout[data-callout="summary"],
+:where(.markdown-rendered) .callout[data-callout="tldr"] {
+  --callout-color: var(--color-cyan-rgb, 0, 176, 255);
+}
+
+:where(.markdown-rendered) .callout[data-callout="info"] {
+  --callout-color: var(--color-cyan-rgb, 0, 184, 212);
+}
+
+:where(.markdown-rendered) .callout[data-callout="todo"] {
+  --callout-color: var(--color-cyan-rgb, 0, 191, 188);
+}
+
+:where(.markdown-rendered) .callout[data-callout="tip"],
+:where(.markdown-rendered) .callout[data-callout="hint"],
+:where(.markdown-rendered) .callout[data-callout="important"] {
+  --callout-color: var(--color-cyan-rgb, 0, 191, 188);
+}
+
+:where(.markdown-rendered) .callout[data-callout="success"],
+:where(.markdown-rendered) .callout[data-callout="check"],
+:where(.markdown-rendered) .callout[data-callout="done"] {
+  --callout-color: var(--color-green-rgb, 68, 207, 110);
+}
+
+:where(.markdown-rendered) .callout[data-callout="question"],
+:where(.markdown-rendered) .callout[data-callout="help"],
+:where(.markdown-rendered) .callout[data-callout="faq"] {
+  --callout-color: var(--color-orange-rgb, 224, 160, 0);
+}
+
+:where(.markdown-rendered) .callout[data-callout="warning"],
+:where(.markdown-rendered) .callout[data-callout="caution"],
+:where(.markdown-rendered) .callout[data-callout="attention"] {
+  --callout-color: var(--color-orange-rgb, 236, 117, 0);
+}
+
+:where(.markdown-rendered) .callout[data-callout="failure"],
+:where(.markdown-rendered) .callout[data-callout="fail"],
+:where(.markdown-rendered) .callout[data-callout="missing"] {
+  --callout-color: var(--color-red-rgb, 253, 71, 84);
+}
+
+:where(.markdown-rendered) .callout[data-callout="danger"],
+:where(.markdown-rendered) .callout[data-callout="error"] {
+  --callout-color: var(--color-red-rgb, 253, 71, 84);
+}
+
+:where(.markdown-rendered) .callout[data-callout="bug"] {
+  --callout-color: var(--color-red-rgb, 253, 71, 84);
+}
+
+:where(.markdown-rendered) .callout[data-callout="example"] {
+  --callout-color: var(--color-purple-rgb, 168, 130, 255);
+}
+
+:where(.markdown-rendered) .callout[data-callout="quote"],
+:where(.markdown-rendered) .callout[data-callout="cite"] {
+  --callout-color: var(--color-base-60-rgb, 158, 158, 158);
+}
+
+:where(.markdown-rendered) .callout-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: rgb(var(--callout-color));
+  font-weight: 600;
+}
+
+:where(.markdown-rendered) .callout-title-inner {
+  flex: 1;
+}
+
+/* Reserved for the icon mask (--callout-icon); sized so titles don't shift. */
+:where(.markdown-rendered) .callout-title-icon {
+  flex: none;
+  width: 1em;
+  height: 1em;
+}
+
+:where(.markdown-rendered) .callout-content {
+  padding: 0 0.75rem 0.75rem;
+}
+
+:where(.markdown-rendered) .callout-content > :first-child {
+  margin-top: 0;
+}
+
+:where(.markdown-rendered) .callout-content > :last-child {
+  margin-bottom: 0;
+}
+
+/* Foldable Callouts: <details>/<summary> toggle without JS. */
+:where(.markdown-rendered) .callout.is-collapsible > .callout-title {
+  cursor: pointer;
+  list-style: none;
+}
+
+:where(.markdown-rendered)
+  .callout.is-collapsible
+  > .callout-title::-webkit-details-marker {
+  display: none;
+}
+
+/* Basic fold marker (a text chevron); replaced by a Lucide mask in a later ticket. */
+:where(.markdown-rendered) .callout.is-collapsible > .callout-title::after {
+  content: "\25BE";
+  margin-left: auto;
+  transition: transform 0.15s;
+}
+
+:where(.markdown-rendered)
+  .callout.is-collapsible:not([open])
+  > .callout-title::after {
+  transform: rotate(-90deg);
+}
