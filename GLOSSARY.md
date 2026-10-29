@@ -76,6 +76,10 @@ _Avoid_: block link
 A blockquote whose first line begins `> [!type]`, rendered as a styled, optionally foldable block.
 _Avoid_: admonition, alert, aside
 
+**Callout Type**:
+The `type` of a Callout, which selects its color and icon. Obsidian's built-in types are styled by the Stylesheet.
+_Avoid_: kind, variant, category
+
 ## Metadata
 
 **Frontmatter**:
@@ -85,3 +89,13 @@ _Avoid_: metadata, YAML header
 **CSS Class**:
 A class name listed in a Note's `cssclasses` Frontmatter property, applied to that Note's rendered container and carried along when the Note is embedded.
 _Avoid_: style, theme class
+
+## Styling
+
+**Stylesheet**:
+The CSS shipped with the plugin that gives rendered Callouts, Highlights and unresolved links the look they have in Obsidian. Consumers opt in by importing it.
+_Avoid_: theme, default styles, skin
+
+**Rendered Container**:
+The element that holds a Note's rendered content, and the only place the Stylesheet applies.
+_Avoid_: wrapper, root, article
