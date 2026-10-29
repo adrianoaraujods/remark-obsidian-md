@@ -79,7 +79,7 @@ _Avoid_: admonition, alert, aside
 ## Metadata
 
 **Frontmatter**:
-The YAML metadata block at the top of a Note, surfaced in Obsidian as Properties.
+The YAML metadata block at the top of a Note, surfaced in Obsidian as Properties. It is hidden when the Note is embedded.
 _Avoid_: metadata, YAML header
 
 **CSS Class**:
