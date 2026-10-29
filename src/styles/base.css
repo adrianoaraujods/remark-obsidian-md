@@ -6,6 +6,9 @@
  * tokens and fall back to the inherited text color when a token is unset.
  */
 
+/* Generated Lucide icon masks and fold marker (pnpm generate:icons). */
+@import "./icons.css";
+
 /* Highlights */
 :where(.markdown-rendered) mark {
   padding: 0 0.15em;
@@ -184,7 +187,7 @@
   flex: 1;
 }
 
-/* Reserved for the icon mask (--callout-icon); sized so titles don't shift. */
+/* Painted by the icon mask in icons.css; sized so titles don't shift. */
 :where(.markdown-rendered) .callout-title-icon {
   flex: none;
   width: 1em;
@@ -215,13 +218,7 @@
   display: none;
 }
 
-/* Basic fold marker (a text chevron); replaced by a Lucide mask in a later ticket. */
-:where(.markdown-rendered) .callout.is-collapsible > .callout-title::after {
-  content: "\25BE";
-  margin-left: auto;
-  transition: transform 0.15s;
-}
-
+/* The fold marker itself (a chevron mask) lives in icons.css; closed turns it. */
 :where(.markdown-rendered)
   .callout.is-collapsible:not([open])
   > .callout-title::after {

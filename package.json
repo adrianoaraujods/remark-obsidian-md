@@ -25,7 +25,8 @@
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "LICENSE-LUCIDE"
   ],
   "exports": {
     ".": "./dist/index.js",
@@ -33,6 +34,7 @@
     "./styles/base.css": "./dist/styles/base.css"
   },
   "scripts": {
+    "generate:icons": "node scripts/generate-icons.mjs",
     "build": "tsc && node scripts/copy-styles.mjs",
     "test": "vitest --coverage",
     "prepublishOnly": "pnpm run build",
@@ -61,6 +63,7 @@
     "@types/unist": "^3.0.3",
     "@vitest/coverage-v8": "^5.0.5",
     "husky": "^9.1.7",
+    "lucide-static": "1.63.0",
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "typescript": "^5.9.3",

@@ -57,6 +57,8 @@ function collectHooks(markdown: string): Set<string> {
     const props = data.hProperties ?? {};
     const color = props["data-highlight"];
     if (typeof color === "string") hooks.add(`[data-highlight="${color}"]`);
+    const icon = props["data-icon"];
+    if (typeof icon === "string") hooks.add(`[data-icon="${icon}"]`);
     const type = props["data-callout"];
     if (typeof type === "string") hooks.add(`[data-callout="${type}"]`);
     for (const name of [props.className ?? []].flat() as string[]) {
@@ -136,10 +138,20 @@ describe("Stylesheet package boundary", () => {
     for (const hook of hooks) {
       expect(css, `no rule for ${hook}`).toContain(hook);
     }
+    for (const { icon } of Object.values(CALLOUT_TYPES)) {
+      expect(hooks).toContain(`[data-icon="${icon}"]`);
+    }
     for (const alias of Object.keys(CALLOUT_ALIASES)) {
       expect(css, `no rule for alias ${alias}`).toContain(
         `[data-callout="${alias}"]`,
       );
     }
+  });
+
+  it("ships the Lucide license notice in the published package", () => {
+    expect(pkg.files).toContain("LICENSE-LUCIDE");
+    expect(readFileSync(resolve(root, "LICENSE-LUCIDE"), "utf8")).toContain(
+      "ISC License",
+    );
   });
 });
