@@ -110,6 +110,7 @@ import type { RemarkObsidianMdOptions } from "remark-obsidian-md";
 | `wikiLinks.slugger`                | `(text: string) => string`                 | GitHub-style slugs    | Slugs heading anchors.                                                                                        |
 | `embeds.readNote`                  | `(path: string) => string \| undefined`    | –                    | Reads a Note's markdown by its resolved path; required for transclusion.                                       |
 | `embeds.maxDepth`                  | `number`                                    | `4`                  | Maximum transclusion nesting depth (cycle-guarded).                                                           |
+| `embeds.showFrontmatter`           | `boolean`                                  | `false`              | Renders the Frontmatter of a whole-Note Embed as a YAML code block; hidden by default.                        |
 | `blockIds.readNote`                | `(path: string) => string \| undefined`    | `embeds.readNote`    | Reads a Note's markdown for cross-Note Block References.                                                       |
 | `callouts.types`                   | `Record<string, CalloutTypeDefinition>`    | canonical 13 types   | Register or override Callout types (`{ icon?, color?, title? }`). Unknown types fall back to `note`.            |
 
@@ -173,7 +174,7 @@ import {
 | Plugin                     | Options                                                                                |
 | :------------------------- | :------------------------------------------------------------------------------------- |
 | `remarkObsidianWikiLinks`  | `resolver`, `slugify`, `slugifyPath`, `slugger`, `urlPrefix`, `unresolvedStrategy`      |
-| `remarkObsidianEmbeds`    | the Wiki Links options plus `readNote`, `maxDepth`                                     |
+| `remarkObsidianEmbeds`    | the Wiki Links options plus `readNote`, `maxDepth`, `showFrontmatter`                 |
 | `remarkObsidianHighlights` | –                                                                                       |
 | `remarkObsidianCallouts`   | `types`                                                                                 |
 | `remarkObsidianComments`   | –                                                                                       |
@@ -199,6 +200,7 @@ import {
 - `![[Note]]` transcludes the whole Note; `![[Note#Heading]]` a section; `![[Note#^block-id]]` a single Block. An Alias on a Note Embed is ignored, like Obsidian: `![[Note|Alias]]` embeds the Note.
 - Transcluded content lives in the `embed` node's `children`, so markdown inside it is processed as markdown (embedded wiki links, callouts and highlights work).
 - The Embed container carries the embedded Note's CSS Classes; a lone Embed is promoted to a `div.internal-embed`, a mid-text Embed becomes a `span.internal-embed`.
+- An embedded Note's Frontmatter is hidden by default: it is stripped before the Note is parsed, so it never leaks into the page as horizontal rules and a heading. Set `embeds.showFrontmatter: true` to render it as a YAML code block at the top of a whole-Note Embed, exactly as written in the Note; section and Block ID Embeds always strip it.
 - `![[image.png]]` renders an `<img>`, with `![[image.png|300]]` and `|300x200` sizing. `![[clip.mp3]]` / `![[clip.mp4]]` render `<audio>` / `<video>` leaves. PDF embeds fall back to a link carrying the `internal-embed` container class.
 - Unresolved Embeds render a marked placeholder instead of disappearing.
 - Embedding stops at `embeds.maxDepth` (default 4) and survives cycles (`A` → `B` → `A`); the stopped placeholder is marked `is-embed-limit`, not `is-unresolved`, since its target resolved fine.
