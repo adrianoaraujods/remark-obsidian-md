@@ -1,2 +1,3 @@
-/* remark-obsidian-md Stylesheet: default bundle. */
+/* remark-obsidian-md Stylesheet: default bundle (base + dark via prefers-color-scheme). */
 @import "./styles/base.css";
+@import "./styles/dark-media.css";
