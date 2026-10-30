@@ -30,6 +30,17 @@ function readCss(file: string): string {
   );
 }
 
+/** Whether some selector in the CSS targets `hook` inside the Rendered Container. */
+function hasScopedRule(css: string, hook: string): boolean {
+  return [...css.matchAll(/([^{}]+)\{/g)]
+    .flatMap((match) => match[1].split(","))
+    .some(
+      (selector) =>
+        selector.includes(":where(.markdown-rendered)") &&
+        selector.includes(hook),
+    );
+}
+
 /** The hooks the plugin emits: the elements and attributes a Stylesheet targets. */
 function collectHooks(markdown: string): Set<string> {
   const processor = unified()
@@ -108,7 +119,7 @@ describe("Stylesheet package boundary", () => {
       expect(hooks).toContain(`[data-highlight="${color}"]`);
     }
     for (const hook of hooks) {
-      expect(css, `no rule for ${hook}`).toContain(hook);
+      expect(hasScopedRule(css, hook), `no scoped rule for ${hook}`).toBe(true);
     }
   });
 
@@ -141,15 +152,16 @@ describe("Stylesheet package boundary", () => {
       expect(hooks).toContain(`[data-callout="${type}"]`);
     }
     for (const hook of hooks) {
-      expect(css, `no rule for ${hook}`).toContain(hook);
+      expect(hasScopedRule(css, hook), `no scoped rule for ${hook}`).toBe(true);
     }
     for (const { icon } of Object.values(CALLOUT_TYPES)) {
       expect(hooks).toContain(`[data-icon="${icon}"]`);
     }
     for (const alias of Object.keys(CALLOUT_ALIASES)) {
-      expect(css, `no rule for alias ${alias}`).toContain(
-        `[data-callout="${alias}"]`,
-      );
+      expect(
+        hasScopedRule(css, `[data-callout="${alias}"]`),
+        `no scoped rule for alias ${alias}`,
+      ).toBe(true);
     }
   });
 
@@ -209,6 +221,19 @@ describe("Stylesheet package boundary", () => {
       "--color-purple",
       "--color-cyan",
     ];
+
+    it("gives the media and class files the same palette values", () => {
+      const palette = (css: string) =>
+        Object.fromEntries(
+          [...css.matchAll(/(--color-[a-z0-9-]+):\s*([^;]+);/g)].map((m) => [
+            m[1],
+            m[2].trim(),
+          ]),
+        );
+
+      expect(Object.keys(palette(media())).length).toBeGreaterThan(0);
+      expect(palette(klass())).toEqual(palette(media()));
+    });
 
     it("keys the media file on prefers-color-scheme", () => {
       expect(media()).toContain("prefers-color-scheme: dark");

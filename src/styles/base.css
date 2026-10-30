@@ -9,15 +9,20 @@
 /* Generated Lucide icon masks and fold marker (pnpm generate:icons). */
 @import "./icons.css";
 
-/* Highlights */
+/*
+ * Highlights. A Highlight Color sets `--highlight-color`; the one `color-mix`
+ * below tints with it. Only a plain Highlight honors `--text-highlight-bg`:
+ * `initial` makes a colored one fall through to its own color.
+ */
 :where(.markdown-rendered) mark {
+  --highlight-color: var(--color-yellow, #e0ac00);
   padding: 0 0.15em;
   border-radius: 0.2em;
   background-color: var(
     --text-highlight-bg,
     color-mix(
       in oklch,
-      var(--color-yellow, #e0ac00) var(--highlight-opacity, 30%),
+      var(--highlight-color) var(--highlight-opacity, 30%),
       transparent
     )
   );
@@ -30,51 +35,33 @@
 }
 
 :where(.markdown-rendered) mark[data-highlight="red"] {
-  background-color: color-mix(
-    in oklch,
-    var(--color-red, #e93147) var(--highlight-opacity, 30%),
-    transparent
-  );
+  --highlight-color: var(--color-red, #e93147);
+  --text-highlight-bg: initial;
 }
 
 :where(.markdown-rendered) mark[data-highlight="orange"] {
-  background-color: color-mix(
-    in oklch,
-    var(--color-orange, #ec7500) var(--highlight-opacity, 30%),
-    transparent
-  );
+  --highlight-color: var(--color-orange, #ec7500);
+  --text-highlight-bg: initial;
 }
 
 :where(.markdown-rendered) mark[data-highlight="yellow"] {
-  background-color: color-mix(
-    in oklch,
-    var(--color-yellow, #e0ac00) var(--highlight-opacity, 30%),
-    transparent
-  );
+  --highlight-color: var(--color-yellow, #e0ac00);
+  --text-highlight-bg: initial;
 }
 
 :where(.markdown-rendered) mark[data-highlight="green"] {
-  background-color: color-mix(
-    in oklch,
-    var(--color-green, #08b94e) var(--highlight-opacity, 30%),
-    transparent
-  );
+  --highlight-color: var(--color-green, #08b94e);
+  --text-highlight-bg: initial;
 }
 
 :where(.markdown-rendered) mark[data-highlight="blue"] {
-  background-color: color-mix(
-    in oklch,
-    var(--color-blue, #086ddd) var(--highlight-opacity, 30%),
-    transparent
-  );
+  --highlight-color: var(--color-blue, #086ddd);
+  --text-highlight-bg: initial;
 }
 
 :where(.markdown-rendered) mark[data-highlight="purple"] {
-  background-color: color-mix(
-    in oklch,
-    var(--color-purple, #7852ee) var(--highlight-opacity, 30%),
-    transparent
-  );
+  --highlight-color: var(--color-purple, #7852ee);
+  --text-highlight-bg: initial;
 }
 
 /* Unresolved Wiki Links */

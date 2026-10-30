@@ -259,7 +259,7 @@ import "remark-obsidian-md/styles/base.css"; // 3. light only: base alone
 
 ### Tokens
 
-Colors read Obsidian's variable names, so an Obsidian snippet or your own theme can set them on the container or any ancestor. Each has a fallback when unset.
+Colors read Obsidian's variable names, so an Obsidian snippet or your own theme can set them. Each has a fallback when unset.
 
 | Token | Fallback | Used for |
 | --- | --- | --- |
@@ -291,7 +291,7 @@ Unknown Callout Types render as `note`; an unknown `data-icon` draws no icon. Fo
 
 ### Overriding
 
-Every Stylesheet selector sits inside `:where()`, so its specificity is zero. Any rule you write wins by source order alone, with no `!important` and no Tailwind or other build step. Setting tokens on the container (or an ancestor) restyles everything at once.
+Every Stylesheet selector sits inside `:where()`, so its specificity is zero. Any rule you write wins by source order alone, with no `!important` and no Tailwind or other build step. With `base.css` alone, tokens set on the container or any ancestor restyle everything at once. The dark files set the palette tokens on the container itself, which is closer than an ancestor, so to override a token in dark mode set it on `.markdown-rendered` (or import `base.css` alone and set your own palette).
 
 ## Deliberately unsupported
 
