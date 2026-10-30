@@ -1,0 +1,22 @@
+/*
+ * remark-obsidian-md Stylesheet: dark palette keyed on a class or attribute
+ * (`.dark`, `.theme-dark`, `[data-theme="dark"]`) on the Rendered Container or
+ * any ancestor. Ignores the visitor's color-scheme preference. Same palette as
+ * dark-media.css.
+ */
+:where(
+  .dark .markdown-rendered,
+  .dark.markdown-rendered,
+  .theme-dark .markdown-rendered,
+  .theme-dark.markdown-rendered,
+  [data-theme="dark"] .markdown-rendered,
+  [data-theme="dark"].markdown-rendered
+) {
+  --color-red: #fb464c;
+  --color-orange: #e9973f;
+  --color-yellow: #e0de71;
+  --color-green: #44cf6e;
+  --color-blue: #027aff;
+  --color-purple: #a882ff;
+  --color-cyan: #53dfdd;
+}

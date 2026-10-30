@@ -1,0 +1,196 @@
+/*
+ * remark-obsidian-md Stylesheet: base.
+ *
+ * Every rule is scoped under the Rendered Container, `.markdown-rendered`,
+ * through :where() so it adds no specificity. Colors read Obsidian's own
+ * tokens and fall back to the inherited text color when a token is unset.
+ */
+
+/* Generated Lucide icon masks and fold marker (pnpm generate:icons). */
+@import "./icons.css";
+
+/*
+ * Highlights. A Highlight Color sets `--highlight-color`; the one `color-mix`
+ * below tints with it. Only a plain Highlight honors `--text-highlight-bg`:
+ * `initial` makes a colored one fall through to its own color.
+ */
+:where(.markdown-rendered) mark {
+  --highlight-color: var(--color-yellow, #e0ac00);
+  padding: 0 0.15em;
+  border-radius: 0.2em;
+  background-color: var(
+    --text-highlight-bg,
+    color-mix(
+      in oklch,
+      var(--highlight-color) var(--highlight-opacity, 30%),
+      transparent
+    )
+  );
+  color: var(--text-normal, inherit);
+}
+
+/* Keeps a highlighted Wiki Link readable. */
+:where(.markdown-rendered) mark a {
+  color: var(--text-normal, inherit);
+}
+
+:where(.markdown-rendered) mark[data-highlight="red"] {
+  --highlight-color: var(--color-red, #e93147);
+  --text-highlight-bg: initial;
+}
+
+:where(.markdown-rendered) mark[data-highlight="orange"] {
+  --highlight-color: var(--color-orange, #ec7500);
+  --text-highlight-bg: initial;
+}
+
+:where(.markdown-rendered) mark[data-highlight="yellow"] {
+  --highlight-color: var(--color-yellow, #e0ac00);
+  --text-highlight-bg: initial;
+}
+
+:where(.markdown-rendered) mark[data-highlight="green"] {
+  --highlight-color: var(--color-green, #08b94e);
+  --text-highlight-bg: initial;
+}
+
+:where(.markdown-rendered) mark[data-highlight="blue"] {
+  --highlight-color: var(--color-blue, #086ddd);
+  --text-highlight-bg: initial;
+}
+
+:where(.markdown-rendered) mark[data-highlight="purple"] {
+  --highlight-color: var(--color-purple, #7852ee);
+  --text-highlight-bg: initial;
+}
+
+/* Unresolved Wiki Links */
+:where(.markdown-rendered) a.is-unresolved {
+  color: var(--text-muted, color-mix(in srgb, currentColor 60%, transparent));
+  text-decoration: underline dotted;
+}
+
+/*
+ * Embeds: resolved Embeds stay unstyled so transcluded content reads as part
+ * of the page. Only unresolved and over-limit Embeds are quietly muted.
+ */
+:where(.markdown-rendered) .internal-embed.is-unresolved,
+:where(.markdown-rendered) .internal-embed.is-embed-limit {
+  color: var(--text-muted, color-mix(in srgb, currentColor 60%, transparent));
+}
+
+/*
+ * Callouts. `--callout-color` is the documented extension point for custom
+ * Callout Types: set any CSS color on `.callout[data-callout="x"]`. The tint
+ * and border are mixed from it. Unknown types render as `note`, so they get
+ * the default color.
+ */
+:where(.markdown-rendered) .callout {
+  --callout-color: var(--callout-default, var(--color-blue, #086ddd));
+  margin: 1rem 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--callout-color) 30%, transparent);
+  border-radius: 0.5rem;
+  background-color: color-mix(in srgb, var(--callout-color) 10%, transparent);
+  color: var(--text-normal, inherit);
+}
+
+:where(.markdown-rendered) .callout[data-callout="note"],
+:where(.markdown-rendered) .callout[data-callout="info"],
+:where(.markdown-rendered) .callout[data-callout="todo"] {
+  --callout-color: var(--color-blue, #086ddd);
+}
+
+:where(.markdown-rendered) .callout[data-callout="abstract"],
+:where(.markdown-rendered) .callout[data-callout="summary"],
+:where(.markdown-rendered) .callout[data-callout="tldr"],
+:where(.markdown-rendered) .callout[data-callout="tip"],
+:where(.markdown-rendered) .callout[data-callout="hint"],
+:where(.markdown-rendered) .callout[data-callout="important"] {
+  --callout-color: var(--color-cyan, #00bfbc);
+}
+
+:where(.markdown-rendered) .callout[data-callout="success"],
+:where(.markdown-rendered) .callout[data-callout="check"],
+:where(.markdown-rendered) .callout[data-callout="done"] {
+  --callout-color: var(--color-green, #08b94e);
+}
+
+:where(.markdown-rendered) .callout[data-callout="question"],
+:where(.markdown-rendered) .callout[data-callout="help"],
+:where(.markdown-rendered) .callout[data-callout="faq"],
+:where(.markdown-rendered) .callout[data-callout="warning"],
+:where(.markdown-rendered) .callout[data-callout="caution"],
+:where(.markdown-rendered) .callout[data-callout="attention"] {
+  --callout-color: var(--color-orange, #ec7500);
+}
+
+:where(.markdown-rendered) .callout[data-callout="failure"],
+:where(.markdown-rendered) .callout[data-callout="fail"],
+:where(.markdown-rendered) .callout[data-callout="missing"],
+:where(.markdown-rendered) .callout[data-callout="danger"],
+:where(.markdown-rendered) .callout[data-callout="error"],
+:where(.markdown-rendered) .callout[data-callout="bug"] {
+  --callout-color: var(--color-red, #e93147);
+}
+
+:where(.markdown-rendered) .callout[data-callout="example"] {
+  --callout-color: var(--color-purple, #7852ee);
+}
+
+:where(.markdown-rendered) .callout[data-callout="quote"],
+:where(.markdown-rendered) .callout[data-callout="cite"] {
+  --callout-color: var(--color-base-60, #9e9e9e);
+}
+
+:where(.markdown-rendered) .callout-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--callout-color);
+  font-weight: 600;
+}
+
+:where(.markdown-rendered) .callout-title-inner {
+  flex: 1;
+}
+
+/* Painted by the icon mask in icons.css; sized so titles don't shift. */
+:where(.markdown-rendered) .callout-title-icon {
+  flex: none;
+  width: 1em;
+  height: 1em;
+}
+
+:where(.markdown-rendered) .callout-content {
+  padding: 0 0.75rem 0.75rem;
+}
+
+:where(.markdown-rendered) .callout-content > :first-child {
+  margin-top: 0;
+}
+
+:where(.markdown-rendered) .callout-content > :last-child {
+  margin-bottom: 0;
+}
+
+/* Foldable Callouts: <details>/<summary> toggle without JS. */
+:where(.markdown-rendered) .callout.is-collapsible > .callout-title {
+  cursor: pointer;
+  list-style: none;
+}
+
+:where(.markdown-rendered)
+  .callout.is-collapsible
+  > .callout-title::-webkit-details-marker {
+  display: none;
+}
+
+/* The fold marker itself (a chevron mask) lives in icons.css; closed turns it. */
+:where(.markdown-rendered)
+  .callout.is-collapsible:not([open])
+  > .callout-title::after {
+  transform: rotate(-90deg);
+}

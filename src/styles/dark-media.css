@@ -1,0 +1,16 @@
+/*
+ * remark-obsidian-md Stylesheet: dark palette keyed on the visitor's
+ * `prefers-color-scheme`. Overrides the color tokens that Highlights and
+ * Callouts read, with Obsidian's dark values. Same palette as dark-class.css.
+ */
+@media (prefers-color-scheme: dark) {
+  :where(.markdown-rendered) {
+    --color-red: #fb464c;
+    --color-orange: #e9973f;
+    --color-yellow: #e0de71;
+    --color-green: #44cf6e;
+    --color-blue: #027aff;
+    --color-purple: #a882ff;
+    --color-cyan: #53dfdd;
+  }
+}
