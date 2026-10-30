@@ -153,13 +153,40 @@ describe("Stylesheet package boundary", () => {
     }
   });
 
-  it("writes Callout color alphas in a form browsers accept", () => {
-    // `--callout-color` is a comma-separated `r, g, b` triplet, and
-    // `rgb(r, g, b / a)` is invalid, so the tinted background and border
-    // would silently be dropped.
+  it("accepts any CSS color for --callout-color", () => {
+    // `callouts.types[x].color` is emitted verbatim as `--callout-color`, so
+    // it can be a name, hex or triplet-free color. Wrapping it in rgb() would
+    // silently drop the tinted background and border.
     const css = readCss(resolveExport("./styles.css"));
 
-    expect(css).not.toMatch(/rgba?\(var\(--callout-color\)\s*\//);
+    expect(css).not.toMatch(/rgba?\(\s*var\(--callout-color\)/);
+    expect(css).toMatch(
+      /background-color:\s*color-mix\([^;]*var\(--callout-color\)/,
+    );
+  });
+
+  it("maps Callout Types to Obsidian's palette colors", () => {
+    const css = readCss(resolveExport("./styles.css"));
+    const colorOf = (type: string) => {
+      const rule = css.match(
+        new RegExp(
+          `\\[data-callout="${type}"\\][^{]*\\{[^}]*--callout-color:\\s*var\\(--color-([a-z0-9-]+)`,
+        ),
+      );
+      return rule?.[1];
+    };
+
+    expect(colorOf("note")).toBe("blue");
+    expect(colorOf("info")).toBe("blue");
+    expect(colorOf("todo")).toBe("blue");
+    expect(colorOf("tip")).toBe("cyan");
+    expect(colorOf("abstract")).toBe("cyan");
+    expect(colorOf("success")).toBe("green");
+    expect(colorOf("question")).toBe("orange");
+    expect(colorOf("warning")).toBe("orange");
+    expect(colorOf("bug")).toBe("red");
+    expect(colorOf("example")).toBe("purple");
+    expect(colorOf("quote")).toBe("base-60");
   });
 
   it("ships the Lucide license notice in the published package", () => {
@@ -181,9 +208,6 @@ describe("Stylesheet package boundary", () => {
       "--color-blue",
       "--color-purple",
       "--color-cyan",
-      "--color-red-rgb",
-      "--color-blue-rgb",
-      "--color-purple-rgb",
     ];
 
     it("keys the media file on prefers-color-scheme", () => {

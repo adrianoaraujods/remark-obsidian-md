@@ -36,7 +36,7 @@ let css = `/*
  */
 
 :where(.markdown-rendered) .callout-title-icon {
-  background-color: rgb(var(--callout-color));
+  background-color: var(--callout-color);
   -webkit-mask-image: var(--callout-icon, linear-gradient(transparent, transparent));
   mask-image: var(--callout-icon, linear-gradient(transparent, transparent));
   -webkit-mask-position: center;

@@ -264,15 +264,15 @@ Colors read Obsidian's variable names, so an Obsidian snippet or your own theme 
 | Token | Fallback | Used for |
 | --- | --- | --- |
 | `--color-red`, `-orange`, `-yellow`, `-green`, `-blue`, `-purple` | `#e93147`, `#ec7500`, `#e0ac00`, `#08b94e`, `#086ddd`, `#7852ee` | Highlight Colors |
-| `--color-{red,orange,yellow,green,blue,purple,cyan}-rgb` | per Callout Type (an `r, g, b` triplet) | Callout colors |
-| `--color-base-60-rgb` | `158, 158, 158` | `quote` / `cite` Callouts |
+| `--color-cyan` | `#00bfbc` | Callout colors, with the colors above |
+| `--color-base-60` | `#9e9e9e` | `quote` / `cite` Callouts |
 | `--text-highlight-bg` | yellow at `--highlight-opacity` | plain `==Highlight==` background |
 | `--highlight-opacity` | `30%` | Highlight Color strength |
 | `--text-normal` | `inherit` | Highlight and Callout text |
 | `--text-muted` | 60% of `currentColor` | unresolved links and Embeds |
 | `--callout-default` | blue | color of an unlisted Callout Type |
 
-The dark imports override the `--color-*` and `--color-*-rgb` tokens with Obsidian's dark palette.
+The dark imports override the `--color-*` tokens with Obsidian's dark palette.
 
 ### Custom Callout Types
 
@@ -280,7 +280,7 @@ Each built-in Callout Type has its Obsidian color and Lucide icon. For a custom 
 
 ```css
 .callout[data-callout="recipe"] {
-  --callout-color: 233, 151, 63; /* r, g, b triplet */
+  --callout-color: #e9973f; /* any CSS color */
 }
 .callout-title-icon[data-icon="chef-hat"] {
   --callout-icon: url("/icons/chef-hat.svg"); /* mask image */
