@@ -75,6 +75,16 @@ const file = await unified()
 console.log(String(file));
 ```
 
+### Line breaks
+
+Obsidian's *Strict line breaks* setting is off by default, so a single newline renders as a `<br>`; plain CommonMark folds it into a space. To match Obsidian, add [`remark-breaks`](https://github.com/remarkjs/remark-breaks) **after** `remarkObsidianMd` (so line breaks inside transcluded Embeds are covered too):
+
+```text
+remarkParse → remarkGfm → remarkObsidianMd → remarkBreaks → remarkRehype (or MDX)
+```
+
+Skip it if your Vault enables *Strict line breaks*.
+
 With **MDX** (e.g. Next.js, Fumadocs), use the same plugins in your `remarkPlugins` array — the plugin emits no MDX JSX nodes.
 
 ## Usage
@@ -302,6 +312,7 @@ These features are intentionally out of scope, each with the plugin that covers 
 | Tags (`#tag`)                        | Rendered as plain text; no maintained plugin — post-process yourself.                                       |
 | GFM reference footnotes (`[^id]`)    | [`remark-gfm`](https://github.com/remarkjs/remark-gfm)                                                     |
 | Math (`$…$`, `$$…$$`)                | [`remark-math`](https://github.com/remarkjs/remark-math) + [`rehype-katex`](https://github.com/remarkjs/remark-math) |
+| Line breaks (single newline → `<br>`) | [`remark-breaks`](https://github.com/remarkjs/remark-breaks) (Obsidian's default; see [Line breaks](#line-breaks)) |
 | Code blocks / syntax highlighting   | `remark-rehype` + [`rehype-highlight`](https://github.com/remarkjs/remark-rehype) or Shiki                  |
 | Mermaid diagrams                     | [`rehype-mermaid`](https://github.com/remcohaszing/rehype-mermaid)                                         |
 | Canvas / Bases                       | Obsidian proprietary formats; no markdown plugin can cover them.                                           |
